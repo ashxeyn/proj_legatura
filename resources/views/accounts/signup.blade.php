@@ -3,15 +3,19 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Sign Up - Legatura</title>
+	<title>{{ isset($isSwitchMode) && $isSwitchMode ? 'Switch Role' : 'Sign Up' }} - Legatura</title>
 	<meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body>
-	<h1>Sign Up</h1>
+	<h1>{{ isset($isSwitchMode) && $isSwitchMode ? 'Switch Role' : 'Sign Up' }}</h1>
+	@if(isset($isSwitchMode) && $isSwitchMode)
+		<p>Add {{ $currentRole === 'contractor' ? 'Property Owner' : 'Contractor' }} role to your account</p>
+	@endif
 
 	<div id="errorMessages" style="display:none; color:red;"></div>
 	<div id="successMessages" style="display:none; color:green;"></div>
 
+	@if(!isset($isSwitchMode) || !$isSwitchMode)
 	<div id="stepRoleSelection" class="step-container">
 		<h2>Select Your Role</h2>
 		<form id="roleSelectionForm" onsubmit="return false;">
@@ -32,9 +36,10 @@
 			</div>
 		</form>
 	</div>
+	@endif
 
 	<!-- CONTRACTOR -->
-	<div id="stepContractor1" class="step-container" style="display:none;">
+	<div id="stepContractor1" class="step-container" style="{{ (isset($isSwitchMode) && $isSwitchMode && isset($currentRole) && $currentRole === 'property_owner') ? '' : 'display:none;' }}">
 		<h2>Company Information</h2>
 		<form id="contractorStep1Form">
 			<div>
@@ -116,7 +121,9 @@
 			<label for="company_social_media">Company Social Media (Optional)</label>
 			<input type="text" id="company_social_media" name="company_social_media" maxlength="255">
 		</div>			<div>
-				<button type="button" onclick="goBackToRole()">Back</button>
+				@if(!isset($isSwitchMode) || !$isSwitchMode)
+					<button type="button" onclick="goBackToRole()">Back</button>
+				@endif
 				<button type="submit">Next</button>
 			</div>
 		</form>
@@ -125,31 +132,65 @@
 	<div id="stepContractor2" class="step-container" style="display:none;">
 		<h2>Account Setup</h2>
 		<form id="contractorStep2Form">
+			@if(isset($isSwitchMode) && $isSwitchMode)
+				<h3>Authorized Representative (from your Property Owner account)</h3>
+			@endif
 			<div>
 				<label for="c_first_name">First Name *</label>
-				<input type="text" id="c_first_name" name="first_name" required maxlength="100">
+				<input type="text" id="c_first_name" name="first_name"
+					value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['property_owner']) ? $existingData['property_owner']->first_name : '' }}"
+					{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+					required maxlength="100">
+				@if(isset($isSwitchMode) && $isSwitchMode)
+					<small>Pre-filled from your Property Owner account</small>
+				@endif
 			</div>
 
 			<div>
 				<label for="c_middle_name">Middle Name (Optional)</label>
-				<input type="text" id="c_middle_name" name="middle_name" maxlength="100">
+				<input type="text" id="c_middle_name" name="middle_name"
+					value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['property_owner']) ? $existingData['property_owner']->middle_name : '' }}"
+					{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+					maxlength="100">
+				@if(isset($isSwitchMode) && $isSwitchMode)
+					<small>Pre-filled from your Property Owner account</small>
+				@endif
 			</div>
 
 			<div>
 				<label for="c_last_name">Last Name *</label>
-				<input type="text" id="c_last_name" name="last_name" required maxlength="100">
+				<input type="text" id="c_last_name" name="last_name"
+					value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['property_owner']) ? $existingData['property_owner']->last_name : '' }}"
+					{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+					required maxlength="100">
+				@if(isset($isSwitchMode) && $isSwitchMode)
+					<small>Pre-filled from your Property Owner account</small>
+				@endif
 			</div>
 
 			<div>
 				<label for="c_username">Username *</label>
-				<input type="text" id="c_username" name="username" required maxlength="50">
+				<input type="text" id="c_username" name="username"
+					value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['user']) ? $existingData['user']->username : '' }}"
+					{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+					required maxlength="50">
+				@if(isset($isSwitchMode) && $isSwitchMode)
+					<small>Pre-filled from your account (cannot be changed)</small>
+				@endif
 			</div>
 
 			<div>
-				<label for="company_email">Company Email *</label>
-				<input type="email" id="company_email" name="company_email" required maxlength="100">
+				<label for="company_email">{{ isset($isSwitchMode) && $isSwitchMode ? 'Personal Email' : 'Company Email' }} *</label>
+				<input type="email" id="company_email" name="company_email"
+					value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['user']) ? $existingData['user']->email : '' }}"
+					{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+					required maxlength="100">
+				@if(isset($isSwitchMode) && $isSwitchMode)
+					<small>Pre-filled from your account (cannot be changed)</small>
+				@endif
 			</div>
 
+			@if(!isset($isSwitchMode) || !$isSwitchMode)
 			<div>
 				<label for="c_password">Password *</label>
 				<input type="password" id="c_password" name="password" required minlength="8">
@@ -160,14 +201,16 @@
 				<label for="c_password_confirmation">Confirm Password *</label>
 				<input type="password" id="c_password_confirmation" name="password_confirmation" required>
 			</div>
+			@endif
 
 			<div>
-				<button type="button" onclick="previousContractorStep(2)">Back</button>
-				<button type="submit">Next (Send OTP)</button>
+				<button type="button" onclick="goToStep('stepContractor1')">Back</button>
+				<button type="submit">{{ isset($isSwitchMode) && $isSwitchMode ? 'Next' : 'Next (Send OTP)' }}</button>
 			</div>
 		</form>
 	</div>
 
+	@if(!isset($isSwitchMode) || !$isSwitchMode)
 	<div id="stepContractor3" class="step-container" style="display:none;">
 		<h2>Step 3: Email Verification</h2>
 		<p>An OTP has been sent to your email. Please enter it below to verify your email address.</p>
@@ -178,14 +221,15 @@
 			</div>
 
 			<div>
-				<button type="button" onclick="previousContractorStep(3)">Back</button>
+				<button type="button" onclick="goToStep('stepContractor2')">Back</button>
 				<button type="submit">Verify OTP</button>
 			</div>
 		</form>
 	</div>
+	@endif
 
 	<div id="stepContractor4" class="step-container" style="display:none;">
-		<h2>Step 4: Verification Documents</h2>
+		<h2>{{ isset($isSwitchMode) && $isSwitchMode ? 'Step 2' : 'Step 4' }}: Verification Documents</h2>
 		<form id="contractorStep4Form">
 			<div>
 				<label for="picab_number">PICAB Number *</label>
@@ -236,14 +280,14 @@
 			</div>
 
 			<div>
-				<button type="button" onclick="previousContractorStep(4)">Back</button>
+				<button type="button" onclick="goToStep('{{ isset($isSwitchMode) && $isSwitchMode ? 'stepContractor2' : 'stepContractor3' }}')">Back</button>
 				<button type="submit">Next</button>
 			</div>
 		</form>
 	</div>
 
 	<div id="stepContractorFinal" class="step-container" style="display:none;">
-		<h2>Step 5: Profile Picture</h2>
+		<h2>{{ isset($isSwitchMode) && $isSwitchMode ? 'Step 3' : 'Step 5' }}: Profile Picture</h2>
 		<form id="contractorFinalForm">
 			<div>
 				<label for="c_profile_pic">Profile Picture (Optional)</label>
@@ -252,29 +296,50 @@
 			</div>
 
 			<div>
-				<button type="button" onclick="previousContractorStep(5)">Back</button>
-				<button type="submit">Complete Registration</button>
+				<button type="button" onclick="goToStep('stepContractor4')">Back</button>
+				<button type="submit">{{ isset($isSwitchMode) && $isSwitchMode ? 'Complete Role Switch' : 'Complete Registration' }}</button>
 			</div>
 		</form>
 	</div>
 
 	<!-- PROPERTY OWNER -->
-	<div id="stepOwner1" class="step-container" style="display:none;">
+	<div id="stepOwner1" class="step-container" style="{{ (isset($isSwitchMode) && $isSwitchMode && isset($currentRole) && $currentRole === 'contractor') ? '' : 'display:none;' }}">
 		<h2>Personal Information</h2>
 		<form id="ownerStep1Form">
+			@if(isset($isSwitchMode) && $isSwitchMode)
+				<h3>Personal Information (from your Contractor account)</h3>
+			@endif
 			<div>
 				<label for="o_first_name">First Name *</label>
-				<input type="text" id="o_first_name" name="first_name" required maxlength="100">
+				<input type="text" id="o_first_name" name="first_name"
+					value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['contractor_user']) ? $existingData['contractor_user']->authorized_rep_fname : '' }}"
+					{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+					required maxlength="100">
+				@if(isset($isSwitchMode) && $isSwitchMode)
+					<small>Pre-filled from your Contractor account</small>
+				@endif
 			</div>
 
 			<div>
 				<label for="o_middle_name">Middle Name (Optional)</label>
-				<input type="text" id="o_middle_name" name="middle_name" maxlength="100">
+				<input type="text" id="o_middle_name" name="middle_name"
+					value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['contractor_user']) ? $existingData['contractor_user']->authorized_rep_mname : '' }}"
+					{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+					maxlength="100">
+				@if(isset($isSwitchMode) && $isSwitchMode)
+					<small>Pre-filled from your Contractor account</small>
+				@endif
 			</div>
 
 			<div>
 				<label for="o_last_name">Last Name *</label>
-				<input type="text" id="o_last_name" name="last_name" required maxlength="100">
+				<input type="text" id="o_last_name" name="last_name"
+					value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['contractor_user']) ? $existingData['contractor_user']->authorized_rep_lname : '' }}"
+					{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+					required maxlength="100">
+				@if(isset($isSwitchMode) && $isSwitchMode)
+					<small>Pre-filled from your Contractor account</small>
+				@endif
 			</div>
 
 			<div>
@@ -299,8 +364,15 @@
 
 			<div>
 			<label for="phone_number">Phone Number *</label>
-			<input type="text" id="phone_number" name="phone_number" required maxlength="11" pattern="09[0-9]{9}" placeholder="09171234567" inputmode="numeric">
-			<small>11 digits starting with 09</small>
+			<input type="text" id="phone_number" name="phone_number"
+				value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['contractor_user']) ? $existingData['contractor_user']->phone_number : '' }}"
+				{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+				required maxlength="11" pattern="09[0-9]{9}" placeholder="09171234567" inputmode="numeric">
+			@if(isset($isSwitchMode) && $isSwitchMode)
+				<small>Pre-filled from your Contractor account</small>
+			@else
+				<small>11 digits starting with 09</small>
+			@endif
 		</div>
 
 		<h3>Address</h3>
@@ -339,7 +411,9 @@
 		</div>
 
 		<div>
-			<button type="button" onclick="goBackToRole()">Back</button>
+			@if(!isset($isSwitchMode) || !$isSwitchMode)
+				<button type="button" onclick="goBackToRole()">Back</button>
+			@endif
 			<button type="submit">Next</button>
 		</div>
 	</form>
@@ -350,14 +424,27 @@
 		<form id="ownerStep2Form">
 			<div>
 				<label for="o_username">Username *</label>
-				<input type="text" id="o_username" name="username" required maxlength="50">
+				<input type="text" id="o_username" name="username"
+					value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['user']) ? $existingData['user']->username : '' }}"
+					{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+					required maxlength="50">
+				@if(isset($isSwitchMode) && $isSwitchMode)
+					<small>Pre-filled from your account (cannot be changed)</small>
+				@endif
 			</div>
 
 			<div>
 				<label for="o_email">Email *</label>
-				<input type="email" id="o_email" name="email" required maxlength="100">
+				<input type="email" id="o_email" name="email"
+					value="{{ isset($isSwitchMode) && $isSwitchMode && isset($existingData['user']) ? $existingData['user']->email : '' }}"
+					{{ isset($isSwitchMode) && $isSwitchMode ? 'readonly' : '' }}
+					required maxlength="100">
+				@if(isset($isSwitchMode) && $isSwitchMode)
+					<small>Pre-filled from your account (cannot be changed)</small>
+				@endif
 			</div>
 
+			@if(!isset($isSwitchMode) || !$isSwitchMode)
 			<div>
 				<label for="o_password">Password *</label>
 				<input type="password" id="o_password" name="password" required minlength="8">
@@ -368,14 +455,16 @@
 				<label for="o_password_confirmation">Confirm Password *</label>
 				<input type="password" id="o_password_confirmation" name="password_confirmation" required>
 			</div>
+			@endif
 
 			<div>
-				<button type="button" onclick="previousOwnerStep(2)">Back</button>
-				<button type="submit">Next (Send OTP)</button>
+				<button type="button" onclick="goToStep('stepOwner1')">Back</button>
+				<button type="submit">{{ isset($isSwitchMode) && $isSwitchMode ? 'Next' : 'Next (Send OTP)' }}</button>
 			</div>
 		</form>
 	</div>
 
+	@if(!isset($isSwitchMode) || !$isSwitchMode)
 	<div id="stepOwner3" class="step-container" style="display:none;">
 		<h2>Step 3: Email Verification</h2>
 		<p>An OTP has been sent to your email. Please enter it below to verify your email address.</p>
@@ -386,14 +475,15 @@
 			</div>
 
 			<div>
-				<button type="button" onclick="previousOwnerStep(3)">Back</button>
+				<button type="button" onclick="goToStep('stepOwner2')">Back</button>
 				<button type="submit">Verify OTP</button>
 			</div>
 		</form>
 	</div>
+	@endif
 
 	<div id="stepOwner4" class="step-container" style="display:none;">
-		<h2>Step 4: Verification Documents</h2>
+		<h2>{{ isset($isSwitchMode) && $isSwitchMode ? 'Step 2' : 'Step 4' }}: Verification Documents</h2>
 		<form id="ownerStep4Form">
 			<div>
 				<label for="valid_id_id">Valid ID Type *</label>
@@ -423,14 +513,14 @@
 			</div>
 
 			<div>
-				<button type="button" onclick="previousOwnerStep(4)">Back</button>
+				<button type="button" onclick="goToStep('{{ isset($isSwitchMode) && $isSwitchMode ? 'stepOwner2' : 'stepOwner3' }}')">Back</button>
 				<button type="submit">Next</button>
 			</div>
 		</form>
 	</div>
 
 	<div id="stepOwnerFinal" class="step-container" style="display:none;">
-		<h2>Step 5: Profile Picture</h2>
+		<h2>{{ isset($isSwitchMode) && $isSwitchMode ? 'Step 3' : 'Step 5' }}: Profile Picture</h2>
 		<form id="ownerFinalForm">
 			<div>
 				<label for="o_profile_pic">Profile Picture (Optional)</label>
@@ -439,14 +529,22 @@
 			</div>
 
 			<div>
-				<button type="button" onclick="previousOwnerStep(5)">Back</button>
-				<button type="submit">Complete Registration</button>
+				<button type="button" onclick="goToStep('stepOwner4')">Back</button>
+				<button type="submit">{{ isset($isSwitchMode) && $isSwitchMode ? 'Complete Role Switch' : 'Complete Registration' }}</button>
 			</div>
 		</form>
 	</div>
 
+	@if(!isset($isSwitchMode) || !$isSwitchMode)
 	<p>Already have an account? <a href="/accounts/login">Login here</a></p>
+	@endif
 
+@if(isset($isSwitchMode) && $isSwitchMode)
+<script>
+	window.isSwitchMode = true;
+	window.currentRole = '{{ $currentRole }}';
+</script>
+@endif
 <script src="{{ asset('js/account.js') }}"></script>
 </body>
 </html>

@@ -14,37 +14,30 @@ class authService
         return str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
     }
 
-    // Hash the OTP for storage
     public function hashOtp($otp)
     {
         return Hash::make($otp);
     }
 
-    // Verify OTP
     public function verifyOtp($inputOtp, $hashedOtp)
     {
         return Hash::check($inputOtp, $hashedOtp);
     }
 
-    // Hash password
     public function hashPassword($password)
     {
         return Hash::make($password);
     }
 
-    // Verify password
     public function verifyPassword($inputPassword, $hashedPassword)
     {
         return Hash::check($inputPassword, $hashedPassword);
     }
 
-    // Send OTP via email (simple implementation)
     public function sendOtpEmail($email, $otp)
     {
-        // Log OTP for debugging
-        \Log::info("OTP for {$email}: {$otp}");
+        // \Log::info("OTP for {$email}: {$otp}");
 
-        // Send email
         try {
             \Mail::raw("Your OTP code is: {$otp}\n\nThis code will expire soon. Please do not share this code with anyone.", function($message) use ($email) {
                 $message->to($email)
@@ -57,7 +50,6 @@ class authService
         }
     }
 
-    // Attempt login for regular users (contractors/property_owners)
     public function attemptUserLogin($username, $password)
     {
         $user = DB::table('users')
@@ -66,18 +58,25 @@ class authService
             ->first();
 
         if ($user && $this->verifyPassword($password, $user->password_hash)) {
-            if ($user->is_active) {
-                return [
-                    'success' => true,
-                    'user' => $user,
-                    'userType' => 'user'
-                ];
-            } else {
+            if (!$user->is_active) {
                 return [
                     'success' => false,
                     'message' => 'Account is inactive'
                 ];
             }
+
+            if (!$user->is_verified) {
+                return [
+                    'success' => false,
+                    'message' => 'Your account is waiting for verification. Please wait for admin approval.'
+                ];
+            }
+
+            return [
+                'success' => true,
+                'user' => $user,
+                'userType' => 'user'
+            ];
         }
 
         return [
@@ -86,7 +85,6 @@ class authService
         ];
     }
 
-    // Attempt login for admin users
     public function attemptAdminLogin($username, $password)
     {
         $admin = DB::table('admin_users')
@@ -115,16 +113,22 @@ class authService
         ];
     }
 
-    // Unified login attempt
     public function login($username, $password)
     {
-        // Try user login first
         $userLogin = $this->attemptUserLogin($username, $password);
         if ($userLogin['success']) {
             return $userLogin;
         }
 
-        // Try admin login
+        $user = DB::table('users')
+            ->where('username', $username)
+            ->orWhere('email', $username)
+            ->first();
+
+        if ($user) {
+            return $userLogin;
+        }
+
         $adminLogin = $this->attemptAdminLogin($username, $password);
         if ($adminLogin['success']) {
             return $adminLogin;
@@ -136,10 +140,8 @@ class authService
         ];
     }
 
-    // Validate password strength
     public function validatePasswordStrength($password)
     {
-        // Min 8 chars, at least 1 uppercase, 1 number, 1 special character
         if (strlen($password) < 8) {
             return [
                 'valid' => false,
@@ -171,7 +173,6 @@ class authService
         return ['valid' => true];
     }
 
-    // Calculate age from date of birth
     public function calculateAge($dateOfBirth)
     {
         $dob = new \DateTime($dateOfBirth);

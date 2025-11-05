@@ -13,13 +13,12 @@ class psgcApiService
     public function getProvinces()
     {
         try {
-            // Cache for 24 hours
             return Cache::remember('psgc_provinces', 86400, function () {
                 $response = Http::get($this->baseUrl . '/provinces/');
 
                 if ($response->successful()) {
                     $provinces = $response->json();
-                    // Sort alphabetically by name
+                    // Sort by name
                     usort($provinces, function($a, $b) {
                         return strcmp($a['name'], $b['name']);
                     });
@@ -42,7 +41,6 @@ class psgcApiService
 
                 if ($response->successful()) {
                     $cities = $response->json();
-                    // Sort alphabetically by name
                     usort($cities, function($a, $b) {
                         return strcmp($a['name'], $b['name']);
                     });
@@ -65,7 +63,6 @@ class psgcApiService
 
                 if ($response->successful()) {
                     $barangays = $response->json();
-                    // Sort alphabetically by name
                     usort($barangays, function($a, $b) {
                         return strcmp($a['name'], $b['name']);
                     });
@@ -168,7 +165,6 @@ class psgcApiService
             ['code' => '1685', 'name' => 'Dinagat Islands']
         ];
 
-        // Sort alphabetically by name
         usort($provinces, function($a, $b) {
             return strcmp($a['name'], $b['name']);
         });

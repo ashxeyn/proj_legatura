@@ -27,39 +27,24 @@ function hideAllSteps() {
 }
 
 function showStep(stepId) {
+	var targetStep = document.getElementById(stepId);
+	if (!targetStep) {
+		console.error('Step not found: ' + stepId);
+		return;
+	}
 	hideAllSteps();
-	document.getElementById(stepId).style.display = 'block';
+	targetStep.style.display = 'block';
 	document.getElementById('errorMessages').style.display = 'none';
 	document.getElementById('successMessages').style.display = 'none';
+}
+
+function goToStep(stepId) {
+	showStep(stepId);
 }
 
 function goBackToRole() {
 	showStep('stepRoleSelection');
 	currentUserType = '';
-}
-
-function previousContractorStep(currentStep) {
-	if (currentStep === 2) {
-		showStep('stepContractor1');
-	} else if (currentStep === 3) {
-		showStep('stepContractor2');
-	} else if (currentStep === 4) {
-		showStep('stepContractor3');
-	} else if (currentStep === 5) {
-		showStep('stepContractor4');
-	}
-}
-
-function previousOwnerStep(currentStep) {
-	if (currentStep === 2) {
-		showStep('stepOwner1');
-	} else if (currentStep === 3) {
-		showStep('stepOwner2');
-	} else if (currentStep === 4) {
-		showStep('stepOwner3');
-	} else if (currentStep === 5) {
-		showStep('stepOwner4');
-	}
 }
 
 function validatePassword(password) {
@@ -429,7 +414,10 @@ document.addEventListener('DOMContentLoaded', function() {
 				formData.set('business_address_barangay', barangaySelect.options[barangaySelect.selectedIndex].getAttribute('data-name'));
 			}
 
-			fetch('/accounts/signup/contractor/step1', {
+			// Use signup endpoint always (no separate switch step1 for company info)
+			var endpoint = '/accounts/signup/contractor/step1';
+
+			fetch(endpoint, {
 				method: 'POST',
 				headers: {
 					'X-CSRF-TOKEN': csrfToken
@@ -456,23 +444,31 @@ document.addEventListener('DOMContentLoaded', function() {
 		contractorStep2Form.addEventListener('submit', function(e) {
 			e.preventDefault();
 
-			var password = document.getElementById('c_password').value;
-			var passwordConfirmation = document.getElementById('c_password_confirmation').value;
+			// Skip password validation in switch mode
+			if (!window.isSwitchMode) {
+				var password = document.getElementById('c_password').value;
+				var passwordConfirmation = document.getElementById('c_password_confirmation').value;
 
-			var passwordError = validatePassword(password);
-			if (passwordError) {
-				showError(passwordError);
-				return;
-			}
+				var passwordError = validatePassword(password);
+				if (passwordError) {
+					showError(passwordError);
+					return;
+				}
 
-			if (password !== passwordConfirmation) {
-				showError('Passwords do not match');
-				return;
+				if (password !== passwordConfirmation) {
+					showError('Passwords do not match');
+					return;
+				}
 			}
 
 			var formData = new FormData(this);
 
-			fetch('/accounts/signup/contractor/step2', {
+			// Use switch endpoint in switch mode
+			var endpoint = window.isSwitchMode
+				? '/accounts/switch/contractor/step1'
+				: '/accounts/signup/contractor/step2';
+
+			fetch(endpoint, {
 				method: 'POST',
 				headers: {
 					'X-CSRF-TOKEN': csrfToken
@@ -482,8 +478,14 @@ document.addEventListener('DOMContentLoaded', function() {
 			.then(response => response.json())
 			.then(data => {
 				if (data.success) {
-					showSuccess(data.message || 'OTP sent successfully!');
-					showStep('stepContractor3');
+					if (window.isSwitchMode) {
+						// Skip OTP, go directly to step 4 (documents)
+						showSuccess(data.message || 'Account information saved!');
+						showStep('stepContractor4');
+					} else {
+						showSuccess(data.message || 'OTP sent successfully!');
+						showStep('stepContractor3');
+					}
 				} else {
 					showError(data.errors ? Object.values(data.errors).flat().join(', ') : 'An error occurred');
 				}
@@ -544,7 +546,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 			var formData = new FormData(this);
 
-			fetch('/accounts/signup/contractor/step4', {
+			// Use switch endpoint in switch mode
+			var endpoint = window.isSwitchMode
+				? '/accounts/switch/contractor/step2'
+				: '/accounts/signup/contractor/step4';
+
+			fetch(endpoint, {
 				method: 'POST',
 				headers: {
 					'X-CSRF-TOKEN': csrfToken
@@ -554,6 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			.then(response => response.json())
 			.then(data => {
 				if (data.success) {
+					showSuccess(data.message || 'Documents uploaded successfully!');
 					showStep('stepContractorFinal');
 				} else {
 					showError(data.errors ? Object.values(data.errors).flat().join(', ') : 'An error occurred');
@@ -572,7 +580,12 @@ document.addEventListener('DOMContentLoaded', function() {
 			e.preventDefault();
 			var formData = new FormData(this);
 
-			fetch('/accounts/signup/contractor/final', {
+			// Use switch endpoint in switch mode
+			var endpoint = window.isSwitchMode
+				? '/accounts/switch/contractor/final'
+				: '/accounts/signup/contractor/final';
+
+			fetch(endpoint, {
 				method: 'POST',
 				headers: {
 					'X-CSRF-TOKEN': csrfToken
@@ -672,23 +685,31 @@ document.addEventListener('DOMContentLoaded', function() {
 		ownerStep2Form.addEventListener('submit', function(e) {
 			e.preventDefault();
 
-			var password = document.getElementById('o_password').value;
-			var passwordConfirmation = document.getElementById('o_password_confirmation').value;
+			// Skip password validation in switch mode
+			if (!window.isSwitchMode) {
+				var password = document.getElementById('o_password').value;
+				var passwordConfirmation = document.getElementById('o_password_confirmation').value;
 
-			var passwordError = validatePassword(password);
-			if (passwordError) {
-				showError(passwordError);
-				return;
-			}
+				var passwordError = validatePassword(password);
+				if (passwordError) {
+					showError(passwordError);
+					return;
+				}
 
-			if (password !== passwordConfirmation) {
-				showError('Passwords do not match');
-				return;
+				if (password !== passwordConfirmation) {
+					showError('Passwords do not match');
+					return;
+				}
 			}
 
 			var formData = new FormData(this);
 
-			fetch('/accounts/signup/owner/step2', {
+			// Use switch endpoint 
+			var endpoint = window.isSwitchMode
+				? '/accounts/switch/owner/step1'
+				: '/accounts/signup/owner/step2';
+
+			fetch(endpoint, {
 				method: 'POST',
 				headers: {
 					'X-CSRF-TOKEN': csrfToken
@@ -698,7 +719,13 @@ document.addEventListener('DOMContentLoaded', function() {
 			.then(response => response.json())
 			.then(data => {
 				if (data.success) {
-					showStep('stepOwner3');
+					if (window.isSwitchMode) {
+						// Skip OTP, go directly to step 4 (documents)
+						showSuccess(data.message || 'Account information saved!');
+						showStep('stepOwner4');
+					} else {
+						showStep('stepOwner3');
+					}
 				} else {
 					showError(data.errors ? Object.values(data.errors).flat().join(', ') : 'An error occurred');
 				}
@@ -745,7 +772,12 @@ document.addEventListener('DOMContentLoaded', function() {
 			e.preventDefault();
 			var formData = new FormData(this);
 
-			fetch('/accounts/signup/owner/step4', {
+			// Use switch endpoint in switch mode
+			var endpoint = window.isSwitchMode
+				? '/accounts/switch/owner/step2'
+				: '/accounts/signup/owner/step4';
+
+			fetch(endpoint, {
 				method: 'POST',
 				headers: {
 					'X-CSRF-TOKEN': csrfToken
@@ -755,6 +787,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			.then(response => response.json())
 			.then(data => {
 				if (data.success) {
+					showSuccess(data.message || 'Documents uploaded successfully!');
 					showStep('stepOwnerFinal');
 				} else {
 					showError(data.errors ? Object.values(data.errors).flat().join(', ') : 'An error occurred');
@@ -773,7 +806,12 @@ document.addEventListener('DOMContentLoaded', function() {
 			e.preventDefault();
 			var formData = new FormData(this);
 
-			fetch('/accounts/signup/owner/final', {
+			// Use switch endpoint in switch mode
+			var endpoint = window.isSwitchMode
+				? '/accounts/switch/owner/final'
+				: '/accounts/signup/owner/final';
+
+			fetch(endpoint, {
 				method: 'POST',
 				headers: {
 					'X-CSRF-TOKEN': csrfToken

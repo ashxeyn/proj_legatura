@@ -28,6 +28,15 @@ Route::post('/accounts/signup/owner/step3/verify-otp', [authController::class, '
 Route::post('/accounts/signup/owner/step4', [authController::class, 'propertyOwnerStep4']);
 Route::post('/accounts/signup/owner/final', [authController::class, 'propertyOwnerFinalStep']);
 
+// Role Switch Routes
+Route::get('/accounts/switch', [authController::class, 'showSwitchForm']);
+Route::post('/accounts/switch/contractor/step1', [authController::class, 'switchContractorStep1']);
+Route::post('/accounts/switch/contractor/step2', [authController::class, 'switchContractorStep2']);
+Route::post('/accounts/switch/contractor/final', [authController::class, 'switchContractorFinal']);
+Route::post('/accounts/switch/owner/step1', [authController::class, 'switchOwnerStep1']);
+Route::post('/accounts/switch/owner/step2', [authController::class, 'switchOwnerStep2']);
+Route::post('/accounts/switch/owner/final', [authController::class, 'switchOwnerFinal']);
+
 // PSGC API Routes
 Route::get('/api/psgc/provinces', [authController::class, 'getProvinces']);
 Route::get('/api/psgc/provinces/{provinceCode}/cities', [authController::class, 'getCitiesByProvince']);

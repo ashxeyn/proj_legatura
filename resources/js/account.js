@@ -27,39 +27,24 @@ function hideAllSteps() {
 }
 
 function showStep(stepId) {
+	var targetStep = document.getElementById(stepId);
+	if (!targetStep) {
+		console.error('Step not found: ' + stepId);
+		return; // Don't hide all steps if target doesn't exist
+	}
 	hideAllSteps();
-	document.getElementById(stepId).style.display = 'block';
+	targetStep.style.display = 'block';
 	document.getElementById('errorMessages').style.display = 'none';
 	document.getElementById('successMessages').style.display = 'none';
+}
+
+function goToStep(stepId) {
+	showStep(stepId);
 }
 
 function goBackToRole() {
 	showStep('stepRoleSelection');
 	currentUserType = '';
-}
-
-function previousContractorStep(currentStep) {
-	if (currentStep === 2) {
-		showStep('stepContractor1');
-	} else if (currentStep === 3) {
-		showStep('stepContractor2');
-	} else if (currentStep === 4) {
-		showStep('stepContractor3');
-	} else if (currentStep === 5) {
-		showStep('stepContractor4');
-	}
-}
-
-function previousOwnerStep(currentStep) {
-	if (currentStep === 2) {
-		showStep('stepOwner1');
-	} else if (currentStep === 3) {
-		showStep('stepOwner2');
-	} else if (currentStep === 4) {
-		showStep('stepOwner3');
-	} else if (currentStep === 5) {
-		showStep('stepOwner4');
-	}
 }
 
 function validatePassword(password) {
@@ -572,7 +557,10 @@ document.addEventListener('DOMContentLoaded', function() {
 			e.preventDefault();
 			var formData = new FormData(this);
 
-			fetch('/accounts/signup/contractor/final', {
+			// Use different endpoint for switch mode
+			var endpoint = window.isSwitchMode ? '/accounts/switch/contractor/final' : '/accounts/signup/contractor/final';
+
+			fetch(endpoint, {
 				method: 'POST',
 				headers: {
 					'X-CSRF-TOKEN': csrfToken
@@ -773,7 +761,10 @@ document.addEventListener('DOMContentLoaded', function() {
 			e.preventDefault();
 			var formData = new FormData(this);
 
-			fetch('/accounts/signup/owner/final', {
+			// Use different endpoint for switch mode
+			var endpoint = window.isSwitchMode ? '/accounts/switch/owner/final' : '/accounts/signup/owner/final';
+
+			fetch(endpoint, {
 				method: 'POST',
 				headers: {
 					'X-CSRF-TOKEN': csrfToken
