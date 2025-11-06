@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\authController;
+use App\Http\Controllers\contractor\cprocessController;
 
 Route::get('/', function () {
     return view('startPoint');
@@ -50,5 +51,11 @@ Route::get('/admin/dashboard', function() {
 Route::get('/dashboard', function() {
     return view('both.dashboard');
 });
+
+// Contractor Milestone Setup Routes
+Route::get('/contractor/milestone/setup', [cprocessController::class, 'showMilestoneSetupForm']);
+Route::post('/contractor/milestone/setup/step1', [cprocessController::class, 'milestoneStepOne']);
+Route::post('/contractor/milestone/setup/step2', [cprocessController::class, 'milestoneStepTwo']);
+Route::post('/contractor/milestone/setup/submit', [cprocessController::class, 'submitMilestone']);
 
 
