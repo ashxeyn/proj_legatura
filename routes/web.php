@@ -3,6 +3,9 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\authController;
 use App\Http\Controllers\contractor\cprocessController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ProjectAdminController;
+use App\Http\Controllers\Admin\DisputeAdminController;
 
 Route::get('/', function () {
     return view('startPoint');
@@ -59,3 +62,18 @@ Route::post('/contractor/milestone/setup/step2', [cprocessController::class, 'mi
 Route::post('/contractor/milestone/setup/submit', [cprocessController::class, 'submitMilestone']);
 
 
+Route::prefix('admin')->middleware('admin.auth')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
+
+    // Projects
+    Route::get('/projects', [ProjectAdminController::class, 'index'])->name('admin.projects.index');
+    Route::get('/projects/{project}', [ProjectAdminController::class, 'show'])->name('admin.projects.show');
+    Route::post('/projects/{project}/approve', [ProjectAdminController::class, 'approve'])->name('admin.projects.approve');
+    Route::post('/projects/{project}/reject', [ProjectAdminController::class, 'reject'])->name('admin.projects.reject');
+    Route::post('/projects/{project}/assign-contractor', [ProjectAdminController::class, 'assignContractor'])->name('admin.projects.assign');
+
+    // Disputes
+    Route::get('/disputes', [DisputeAdminController::class, 'index'])->name('admin.disputes.index');
+    Route::get('/disputes/{id}', [DisputeAdminController::class, 'show'])->name('admin.disputes.show');
+    Route::post('/disputes/{id}/resolve', [DisputeAdminController::class, 'resolve'])->name('admin.disputes.resolve');
+});

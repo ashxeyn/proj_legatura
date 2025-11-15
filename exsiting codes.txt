@@ -1,0 +1,2148 @@
+app
+	Http
+		Controllers
+			Api
+				ProjectController.php<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreProjectRequest;
+use App\Http\Requests\UpdateProjectRequest;
+use App\Http\Resources\ProjectResource;
+use App\Models\Project;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\ResourceCollection;
+
+class ProjectController extends Controller
+{
+    public function index(Request $request): ResourceCollection
+    {
+        $projects = Project::query()
+            ->when($request->integer('owner_id'), fn($q, $ownerId) => $q->where('owner_id', $ownerId))
+            ->latest('project_id')
+            ->paginate(10);
+
+        return ProjectResource::collection($projects);
+    }
+
+    public function store(StoreProjectRequest $request): ProjectResource
+    {
+        $project = Project::create($request->only([
+            'owner_id',
+            'project_title',
+            'project_description',
+            'project_location',
+            'budget_range_min',
+            'budget_range_max',
+            'lot_size',
+            'property_type',
+            'type_id',
+            'to_finish',
+            'project_status',
+            'selected_contractor_id',
+            'bidding_deadline',
+        ]));
+
+        return new ProjectResource($project);
+    }
+
+    public function show(Project $project): ProjectResource
+    {
+        // Ownership enforcement can be added once auth is mapped to property_owners
+        return new ProjectResource($project);
+    }
+
+    public function update(UpdateProjectRequest $request, Project $project): ProjectResource
+    {
+        $project->fill($request->only([
+            'owner_id',
+            'project_title',
+            'project_description',
+            'project_location',
+            'budget_range_min',
+            'budget_range_max',
+            'lot_size',
+            'property_type',
+            'type_id',
+            'to_finish',
+            'project_status',
+            'selected_contractor_id',
+            'bidding_deadline',
+        ]));
+        $project->save();
+
+        return new ProjectResource($project);
+    }
+
+    public function destroy(Project $project)
+    {
+        $project->delete();
+        return response()->noContent();
+    }
+
+    // Note: once auth is tied to property_owners.user_id, enforce owner-based access here
+    protected function authorizeProject(Project $project): void {}
+}
+
+
+
+			contractor
+				cprocessController.php<?php
+
+namespace App\Http\Controllers\contractor;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\DB;
+use App\Models\contractor\contractorClass;
+
+class cprocessController extends Controller
+{
+	protected $contractorClass;
+
+	public function __construct()
+	{
+		$this->contractorClass = new contractorClass();
+	}
+
+	public function showMilestoneSetupForm(Request $request)
+	{
+		if (!Session::has('user')) {
+			return redirect('/accounts/login')->with('error', 'Please login first');
+		}
+
+		$user = Session::get('user');
+		$contractor = $this->contractorClass->getContractorByUserId($user->user_id);
+
+		if (!$contractor) {
+			return redirect('/dashboard')->with('error', 'Contractor profile not found.');
+		}
+
+		$projectId = $request->query('project_id');
+		$projects = $this->contractorClass->getContractorProjects($contractor->contractor_id);
+
+		return view('contractor.milestoneSetup', [
+			'projectId' => $projectId,
+			'projects' => $projects,
+			'contractor' => $contractor
+		]);
+	}
+
+	public function milestoneStepOne(Request $request)
+	{
+		if (!Session::has('user')) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['Please login first']
+			], 401);
+		}
+
+		$user = Session::get('user');
+		$contractor = $this->contractorClass->getContractorByUserId($user->user_id);
+
+		if (!$contractor) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['Contractor profile not found']
+			], 404);
+		}
+
+		$validated = $request->validate([
+			'project_id' => 'required|integer',
+			'milestone_name' => 'required|string|max:200',
+			'payment_mode' => 'required|in:downpayment,full_payment'
+		]);
+
+		if (!$this->contractorClass->projectBelongsToContractor($validated['project_id'], $contractor->contractor_id)) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['Selected project is not assigned to your company']
+			], 403);
+		}
+
+		if ($this->contractorClass->contractorHasMilestoneForProject($validated['project_id'], $contractor->contractor_id)) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['This project already has a milestone plan.']
+			], 409);
+		}
+
+		Session::put('milestone_setup_step1', [
+			'project_id' => (int) $validated['project_id'],
+			'contractor_id' => (int) $contractor->contractor_id,
+			'milestone_name' => $validated['milestone_name'],
+			'milestone_description' => $request->input('milestone_description', $validated['milestone_name']),
+			'payment_mode' => $validated['payment_mode']
+		]);
+
+		Session::forget('milestone_setup_step2');
+		Session::forget('milestone_setup_items');
+
+		return response()->json([
+			'success' => true,
+			'step' => 2,
+			'payment_mode' => $validated['payment_mode']
+		]);
+	}
+
+	public function milestoneStepTwo(Request $request)
+	{
+		$step1 = Session::get('milestone_setup_step1');
+
+		if (!$step1) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['Please complete the previous step first']
+			], 400);
+		}
+
+		$rules = [
+			'start_date' => 'required|date',
+			'end_date' => 'required|date',
+			'total_project_cost' => 'required|numeric|min:0.01'
+		];
+
+		if ($step1['payment_mode'] === 'downpayment') {
+			$rules['downpayment_amount'] = 'required|numeric|min:0';
+		}
+
+		$validated = $request->validate($rules);
+
+		$startDate = strtotime($validated['start_date']);
+		$endDate = strtotime($validated['end_date']);
+
+		if ($startDate === false || $endDate === false || $startDate > $endDate) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['Start date must be before end date']
+			], 422);
+		}
+
+		$totalCost = (float) $validated['total_project_cost'];
+		$downpayment = 0.00;
+
+		if ($step1['payment_mode'] === 'downpayment') {
+			$downpayment = (float) $validated['downpayment_amount'];
+			if ($downpayment < 0 || $downpayment >= $totalCost) {
+				return response()->json([
+					'success' => false,
+					'errors' => ['Downpayment must be less than the total project cost']
+				], 422);
+			}
+		}
+
+		Session::put('milestone_setup_step2', [
+			'start_date' => date('Y-m-d 00:00:00', $startDate),
+			'end_date' => date('Y-m-d 23:59:59', $endDate),
+			'total_project_cost' => $totalCost,
+			'downpayment_amount' => $downpayment
+		]);
+
+		return response()->json([
+			'success' => true,
+			'step' => 3,
+			'start_date' => date('Y-m-d', $startDate),
+			'end_date' => date('Y-m-d', $endDate),
+			'payment_mode' => $step1['payment_mode']
+		]);
+	}
+
+	public function submitMilestone(Request $request)
+	{
+		$step1 = Session::get('milestone_setup_step1');
+		$step2 = Session::get('milestone_setup_step2');
+
+		if (!$step1 || !$step2) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['Session expired. Please start again.']
+			], 400);
+		}
+
+		$itemsRaw = $request->input('items');
+		if (!$itemsRaw) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['Please provide at least one milestone item']
+			], 422);
+		}
+
+		$items = json_decode($itemsRaw, true);
+		if (!is_array($items) || empty($items)) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['Invalid milestone items data']
+			], 422);
+		}
+
+		$totalPercentage = 0;
+		$startDate = strtotime($step2['start_date']);
+		$endDate = strtotime($step2['end_date']);
+
+		foreach ($items as $item) {
+			if (!isset($item['percentage'], $item['title'], $item['description'], $item['date_to_finish'])) {
+				return response()->json([
+					'success' => false,
+					'errors' => ['Each milestone item must have percentage, title, description, and date']
+				], 422);
+			}
+
+			$percentage = (float) $item['percentage'];
+			if ($percentage <= 0) {
+				return response()->json([
+					'success' => false,
+					'errors' => ['Milestone item percentages must be greater than zero']
+				], 422);
+			}
+
+			$itemDate = strtotime($item['date_to_finish']);
+			if ($itemDate === false || $itemDate < $startDate || $itemDate > $endDate) {
+				return response()->json([
+					'success' => false,
+					'errors' => ['Milestone item dates must be within the project schedule']
+				], 422);
+			}
+
+			$totalPercentage += $percentage;
+		}
+
+		if (round($totalPercentage, 2) !== 100.00) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['Milestone percentages must add up to exactly 100%']
+			], 422);
+		}
+
+		$lastItem = end($items);
+		$lastDate = strtotime($lastItem['date_to_finish']);
+		if (date('Y-m-d', $lastDate) !== date('Y-m-d', $endDate)) {
+			return response()->json([
+				'success' => false,
+				'errors' => ['The last milestone item must finish on the project end date']
+			], 422);
+		}
+
+		try {
+			DB::beginTransaction();
+
+			$planId = $this->contractorClass->createPaymentPlan([
+				'project_id' => $step1['project_id'],
+				'contractor_id' => $step1['contractor_id'],
+				'payment_mode' => $step1['payment_mode'],
+				'total_project_cost' => $step2['total_project_cost'],
+				'downpayment_amount' => $step2['downpayment_amount']
+			]);
+
+			$milestoneId = $this->contractorClass->createMilestone([
+				'project_id' => $step1['project_id'],
+				'contractor_id' => $step1['contractor_id'],
+				'plan_id' => $planId,
+				'milestone_name' => $step1['milestone_name'],
+				'milestone_description' => $step1['milestone_description'],
+				'start_date' => $step2['start_date'],
+				'end_date' => $step2['end_date']
+			]);
+
+			$remainingAmount = $step2['total_project_cost'];
+			if ($step1['payment_mode'] === 'downpayment') {
+				$remainingAmount -= $step2['downpayment_amount'];
+			}
+
+			foreach ($items as $index => $item) {
+				$percentage = (float) $item['percentage'];
+				$itemCostBase = $step1['payment_mode'] === 'downpayment'
+					? $remainingAmount
+					: $step2['total_project_cost'];
+				$calculatedCost = $itemCostBase * ($percentage / 100);
+
+				$this->contractorClass->createMilestoneItem([
+					'milestone_id' => $milestoneId,
+					'sequence_order' => $index + 1,
+					'percentage_progress' => $percentage,
+					'milestone_item_title' => $item['title'],
+					'milestone_item_description' => $item['description'],
+					'milestone_item_cost' => round($calculatedCost, 2),
+					'date_to_finish' => date('Y-m-d 23:59:59', strtotime($item['date_to_finish']))
+				]);
+			}
+
+			DB::commit();
+		} catch (\Exception $e) {
+			DB::rollBack();
+			return response()->json([
+				'success' => false,
+				'errors' => ['An error occurred while saving the milestone. Please try again.']
+			], 500);
+		}
+
+		Session::forget('milestone_setup_step1');
+		Session::forget('milestone_setup_step2');
+		Session::forget('milestone_setup_items');
+
+		return response()->json([
+			'success' => true,
+			'message' => 'Milestone plan created successfully!',
+			'redirect' => '/dashboard'
+		]);
+	}
+}
+
+			Web
+				ProjectWebController.php<?php
+
+namespace App\Http\Controllers\Web;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreProjectRequest;
+use App\Http\Requests\StoreContractorProjectRequest;
+use Illuminate\Http\Request;
+
+// Require the file to load all classes from PropertyOwnerProject.php
+// This is needed because PSR-4 autoloading expects one class per file
+// Path: from app/Http/Controllers/Web/ to app/Models/PropertyOwner/
+require_once __DIR__ . '/../../../Models/PropertyOwner/PropertyOwnerProject.php';
+
+// Require the file to load all classes from ContractorProject.php
+require_once __DIR__ . '/../../../Models/Contractor/ContractorProject.php';
+
+use App\Models\PropertyOwner\PropertyOwnerProjectService;
+use App\Models\Contractor\ContractorProjectService;
+
+class ProjectWebController extends Controller
+{
+    protected $projectService;
+    protected $contractorService;
+
+    public function __construct()
+    {
+        // Manually instantiate the services since all classes are in one file
+        $this->projectService = new PropertyOwnerProjectService();
+        $this->contractorService = new ContractorProjectService();
+    }
+
+    public function ownerForm()
+    {
+        $types = $this->projectService->getContractorTypes();
+        return view('projects.projectPosting.Propertyowner', compact('types'));
+    }
+
+    public function contractorForm()
+    {
+        return view('projects.projectPosting.Contractor');
+    }
+
+    public function storeOwner(StoreProjectRequest $request)
+    {
+        $data = $request->validated();
+        
+        $housePhotos = $request->hasFile('house_photos') ? $request->file('house_photos') : [];
+        $landTitleFile = $request->hasFile('land_title') ? $request->file('land_title') : null;
+        $blueprintFile = $request->hasFile('blueprint') ? $request->file('blueprint') : null;
+        $supportingDocuments = $request->hasFile('supporting_documents') ? $request->file('supporting_documents') : [];
+        
+        $project = $this->projectService->createProject($data, $landTitleFile, $blueprintFile, $supportingDocuments, $housePhotos);
+        
+        return redirect()->route('projects.show', $project->project_id)->with('success', 'Project created successfully');
+    }
+
+    public function show($id)
+    {
+        $project = $this->projectService->getProjectById($id);
+        
+        if (!$project) {
+            return redirect()->route('projects.create')->with('error', 'Project not found');
+        }
+        
+        return view('projects.projectPosting.PropertyownerPost', compact('project'));
+    }
+
+    public function storeContractor(StoreContractorProjectRequest $request)
+    {
+        $data = $request->validated();
+        
+        $mediaFiles = $request->hasFile('media') ? $request->file('media') : [];
+        
+        // For contractor projects, we need to handle owner_id
+        // Since contractors don't have owner_id, we'll use a default or system owner
+        // TODO: Implement proper owner_id mapping or create system owner
+        // For now, using contractor_id to find/create owner relationship
+        $contractor = $this->contractorService->getContractorById($data['contractor_id']);
+        
+        if (!$contractor) {
+            return redirect()->back()->with('error', 'Contractor not found');
+        }
+        
+        // Set owner_id to a default (1) or create logic to map contractor to owner
+        // This is a simplified approach - you may need to adjust based on your business logic
+        $data['owner_id'] = 1; // TODO: Get proper owner_id from contractor relationship
+        
+        // Create project
+        $project = $this->contractorService->createProject($data, $mediaFiles);
+        
+        return redirect()->route('contractorProjects.show', $project->project_id)->with('success', 'Project posted successfully');
+    }
+
+    public function showContractor($id)
+    {
+        $project = $this->contractorService->getProjectById($id);
+        
+        if (!$project) {
+            return redirect()->route('contractorProjects.create')->with('error', 'Project not found');
+        }
+        
+        return view('projects.projectPosting.contractorPost', compact('project'));
+    }
+}
+
+
+
+			authController.php<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Services\authService;
+use App\Services\psgcApiService;
+use App\Models\accounts\accountClass;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+
+class authController extends Controller
+{
+    protected $authService;
+    protected $accountClass;
+    protected $psgcService;
+
+    public function __construct()
+    {
+        $this->authService = new authService();
+        $this->accountClass = new accountClass();
+        $this->psgcService = new psgcApiService();
+    }
+
+    private function validateIdNumberFormat($idType, $idNumber)
+    {
+        switch ($idType) {
+            case 9:
+                if (!preg_match('/^\d{12}$/', $idNumber)) {
+                    return 'National ID must be exactly 12 digits (numeric).';
+                }
+                break;
+            case 4:
+                if (!preg_match('/^\d{12}$/', $idNumber)) {
+                    return 'PhilHealth ID must be exactly 12 digits (numeric).';
+                }
+                break;
+            case 3:
+                if (!preg_match('/^\d{12}$/', $idNumber)) {
+                    return 'SSS ID/UMID must be exactly 12 digits (numeric).';
+                }
+                break;
+            case 2:
+                if (!preg_match('/^[A-Za-z0-9]{12,15}$/', $idNumber)) {
+                    return 'Driver\'s License must be 12-15 alphanumeric characters.';
+                }
+                break;
+            case 1:
+                if (!preg_match('/^[A-Za-z0-9]{7,9}$/', $idNumber)) {
+                    return 'Philippine Passport must be 7-9 alphanumeric characters.';
+                }
+                break;
+            default:
+                if (!preg_match('/^[A-Za-z0-9]{8,15}$/', $idNumber)) {
+                    return 'Valid ID must be 8-15 alphanumeric characters.';
+                }
+                break;
+        }
+        return 'success';
+    }
+
+    public function showLoginForm()
+    {
+        return view('accounts.login');
+    }
+
+    // Handle login
+    public function login(Request $request)
+    {
+        $request->validate([
+            'username' => 'required|string',
+            'password' => 'required|string'
+        ]);
+
+        $result = $this->authService->login($request->username, $request->password);
+
+        if ($result['success']) {
+            // Store user info in session
+            Session::put('user', $result['user']);
+            Session::put('userType', $result['userType']);
+
+            if ($result['userType'] === 'admin') {
+                return redirect('/admin/dashboard')->with('success', 'Welcome Admin!');
+            } else {
+                return redirect('/dashboard')->with('success', 'Welcome back!');
+            }
+        } else {
+            return back()->withErrors(['login' => $result['message']])->withInput();
+        }
+    }
+
+    // Show signup form
+    public function showSignupForm()
+    {
+        // Values ng dropdowns
+        $contractorTypes = $this->accountClass->getContractorTypes();
+        $occupations = $this->accountClass->getOccupations();
+        $validIds = $this->accountClass->getValidIds();
+        $provinces = $this->psgcService->getProvinces();
+        $picabCategories = $this->accountClass->getPicabCategories();
+
+        return view('accounts.signup', compact('contractorTypes', 'occupations', 'validIds', 'provinces', 'picabCategories'));
+    }
+
+    // Handle role selection
+    public function selectRole(Request $request)
+    {
+        $request->validate([
+            'user_type' => 'required|in:contractor,property_owner'
+        ]);
+
+        Session::put('signup_user_type', $request->user_type);
+        Session::put('signup_step', 1);
+
+        return response()->json(['success' => true, 'user_type' => $request->user_type]);
+    }
+
+    // Handle Contractor Step 1
+    public function contractorStep1(Request $request)
+    {
+        $request->validate([
+            'company_name' => 'required|string|max:200',
+            'company_phone' => 'required|regex:/^09[0-9]{9}$/|size:11',
+            'years_of_experience' => 'required|numeric|min:0',
+            'contractor_type_id' => 'required|exists:contractor_types,type_id',
+            'services_offered' => 'required|string',
+            'business_address_street' => 'required|string',
+            'business_address_barangay' => 'required|string',
+            'business_address_city' => 'required|string',
+            'business_address_province' => 'required|string',
+            'business_address_postal' => 'required|string',
+            'company_website' => 'nullable|string|max:255',
+            'company_social_media' => 'nullable|string|max:255',
+            'contractor_type_other_text' => 'nullable|string|max:200'
+        ]);
+
+        $businessAddress = $request->business_address_street . ', ' .
+                          $request->business_address_barangay . ', ' .
+                          $request->business_address_city . ', ' .
+                          $request->business_address_province . ' ' .
+                          $request->business_address_postal;
+
+        $step1Data = [
+            'company_name' => $request->company_name,
+            'company_phone' => $request->company_phone,
+            'years_of_experience' => $request->years_of_experience,
+            'type_id' => $request->contractor_type_id,
+            'contractor_type_other' => $request->contractor_type_other_text,
+            'services_offered' => $request->services_offered,
+            'business_address' => $businessAddress,
+            'company_website' => $request->company_website,
+            'company_social_media' => $request->company_social_media
+        ];
+
+        // Para istore lang to yung sa step 1 inputs
+        // Only treat as switch mode if user is logged in na and verified signup na
+        $user = Session::get('user');
+        if ($user && isset($user->is_verified) && $user->is_verified == 1) {
+            // User is logged in and verified - this is role switch
+            Session::put('switch_contractor_step1', $step1Data);
+        }
+
+        // Always keep the base signup session data for the final step
+        Session::put('contractor_step1', $step1Data);
+
+        Session::put('signup_step', 2);
+
+        return response()->json(['success' => true, 'step' => 2]);
+    }
+
+    // Handle Contractor Step 2
+    public function contractorStep2(Request $request)
+    {
+        $request->validate([
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'username' => 'required|string|max:50',
+            'company_email' => 'required|email|max:100',
+            'password' => 'required|string|min:8',
+            'password_confirmation' => 'required|same:password'
+        ]);
+
+        if ($this->accountClass->usernameExists($request->username)) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['username' => ['Username already exists']]
+            ], 422);
+        }
+
+        if ($this->accountClass->emailExists($request->company_email)) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['company_email' => ['Email already exists']]
+            ], 422);
+        }
+
+        if ($this->accountClass->companyEmailExists($request->company_email)) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['company_email' => ['Company email already exists']]
+            ], 422);
+        }
+
+        $passwordValidation = $this->authService->validatePasswordStrength($request->password);
+        if (!$passwordValidation['valid']) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['password' => [$passwordValidation['message']]]
+            ], 422);
+        }
+
+        // Generate and send OTP
+        $otp = $this->authService->generateOtp();
+        $otpHash = $this->authService->hashOtp($otp);
+        $this->authService->sendOtpEmail($request->company_email, $otp);
+
+        // Store in session
+        Session::put('contractor_step2', [
+            'first_name' => $request->first_name,
+            'middle_name' => $request->middle_name,
+            'last_name' => $request->last_name,
+            'username' => $request->username,
+            'company_email' => $request->company_email,
+            'password' => $request->password,
+            'otp_hash' => $otpHash
+        ]);
+
+        Session::put('signup_step', 3);
+
+        return response()->json(['success' => true, 'step' => 3, 'message' => 'OTP sent to email']);
+    }
+
+    // Contractor Step 3
+    public function contractorVerifyOtp(Request $request)
+    {
+        $request->validate([
+            'otp' => 'required|string|size:6'
+        ]);
+
+        $step2Data = Session::get('contractor_step2');
+
+        // Verify OTP
+        if (!$this->authService->verifyOtp($request->otp, $step2Data['otp_hash'])) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['otp' => ['Invalid OTP']]
+            ], 422);
+        }
+
+        Session::put('signup_step', 4);
+
+        return response()->json(['success' => true, 'step' => 4]);
+    }
+
+    // Contractor Step 4
+    public function contractorStep4(Request $request)
+    {
+        $request->validate([
+            'picab_number' => 'required|string|max:100|unique:contractors,picab_number',
+            'picab_category' => 'required|string|max:100',
+            'picab_expiration_date' => 'required|date|after:today',
+            'business_permit_number' => 'required|string|max:100|unique:contractors,business_permit_number',
+            'business_permit_city' => 'required|string|max:100',
+            'business_permit_expiration' => 'required|date|after:today',
+            'tin_business_reg_number' => 'required|string|max:100|unique:contractors,tin_business_reg_number',
+            'dti_sec_registration_photo' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120'
+        ]);
+
+        // Handle file upload
+        $dtiSecPath = $request->file('dti_sec_registration_photo')->store('DTI_SEC', 'public');
+
+        // Store in session
+        Session::put('contractor_step4', [
+            'picab_number' => $request->picab_number,
+            'picab_category' => $request->picab_category,
+            'picab_expiration_date' => $request->picab_expiration_date,
+            'business_permit_number' => $request->business_permit_number,
+            'business_permit_city' => $request->business_permit_city,
+            'business_permit_expiration' => $request->business_permit_expiration,
+            'tin_business_reg_number' => $request->tin_business_reg_number,
+            'dti_sec_registration_photo' => $dtiSecPath
+        ]);
+
+        Session::put('signup_step', 5);
+
+        return response()->json(['success' => true, 'step' => 5]);
+    }
+
+    // Handle Contractor Final Step
+    public function contractorFinalStep(Request $request)
+    {
+        $request->validate([
+            'profile_pic' => 'nullable|file|mimes:jpg,jpeg,png|max:2048'
+        ]);
+
+        // Get all session data
+        $step1 = Session::get('contractor_step1');
+        $step2 = Session::get('contractor_step2');
+        $step4 = Session::get('contractor_step4');
+
+        // \Log::info('Contractor Final - Step1: ' . ($step1 ? 'EXISTS' : 'NULL'));
+        // \Log::info('Contractor Final - Step2: ' . ($step2 ? 'EXISTS' : 'NULL'));
+        // \Log::info('Contractor Final - Step4: ' . ($step4 ? 'EXISTS' : 'NULL'));
+        // \Log::info('All Session Keys: ' . json_encode(Session::all()));
+
+        // Check if all required session data exists
+        if (!$step1 || !$step2 || !$step4) {
+            $missing = [];
+            if (!$step1) {
+                $missing[] = 'Step 1 data';
+            }
+            if (!$step2) {
+                $missing[] = 'Step 2 data';
+            }
+            if (!$step4) {
+                $missing[] = 'Step 4 data';
+            }
+
+            return response()->json([
+                'success' => false,
+                'errors' => ['Session expired. Missing: ' . implode(', ', $missing) . '. Please start the registration process again.']
+            ], 400);
+        }
+
+        $profilePicPath = null;
+        if ($request->hasFile('profile_pic')) {
+            $profilePicPath = $request->file('profile_pic')->store('profiles', 'public');
+        }
+
+        // Create user
+        $userId = $this->accountClass->createUser([
+            'profile_pic' => $profilePicPath,
+            'username' => $step2['username'],
+            'email' => $step2['company_email'],
+            'password_hash' => $this->authService->hashPassword($step2['password']),
+            'OTP_hash' => $step2['otp_hash'],
+            'user_type' => 'contractor'
+        ]);
+
+        // Create contractor
+        $contractorId = $this->accountClass->createContractor([
+            'user_id' => $userId,
+            'company_name' => $step1['company_name'],
+            'years_of_experience' => $step1['years_of_experience'],
+            'type_id' => $step1['type_id'],
+            'contractor_type_other' => $step1['contractor_type_other'] ?? null,
+            'services_offered' => $step1['services_offered'],
+            'business_address' => $step1['business_address'],
+            'company_email' => $step2['company_email'],
+            'company_phone' => $step1['company_phone'],
+            'company_website' => $step1['company_website'],
+            'company_social_media' => $step1['company_social_media'],
+            'picab_number' => $step4['picab_number'],
+            'picab_category' => $step4['picab_category'],
+            'picab_expiration_date' => $step4['picab_expiration_date'],
+            'business_permit_number' => $step4['business_permit_number'],
+            'business_permit_city' => $step4['business_permit_city'],
+            'business_permit_expiration' => $step4['business_permit_expiration'],
+            'tin_business_reg_number' => $step4['tin_business_reg_number'],
+            'dti_sec_registration_photo' => $step4['dti_sec_registration_photo']
+        ]);
+
+        // Create contractor user
+        $this->accountClass->createContractorUser([
+            'contractor_id' => $contractorId,
+            'user_id' => $userId,
+            'first_name' => $step2['first_name'],
+            'middle_name' => $step2['middle_name'],
+            'last_name' => $step2['last_name'],
+            'phone_number' => $step1['company_phone']
+        ]);
+
+        // Clear session
+        Session::forget(['signup_user_type', 'signup_step', 'contractor_step1', 'contractor_step2', 'contractor_step4']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registration successful! Please wait for admin approval.',
+            'redirect' => '/accounts/login'
+        ]);
+    }
+
+    // Handle Property Owner Step 1
+    public function propertyOwnerStep1(Request $request)
+    {
+        $request->validate([
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'occupation_id' => 'required|exists:occupations,id',
+            'date_of_birth' => 'required|date|before:today',
+            'phone_number' => 'required|regex:/^09[0-9]{9}$/|size:11',
+            'owner_address_street' => 'required|string|max:255',
+            'owner_address_province' => 'required|string|max:100',
+            'owner_address_city' => 'required|string|max:100',
+            'owner_address_barangay' => 'required|string|max:100',
+            'owner_address_postal' => 'required|string|max:10',
+            'occupation_other_text' => 'nullable|string|max:200'
+        ]);
+
+        // Age
+        $age = $this->authService->calculateAge($request->date_of_birth);
+
+        // Combine address
+        $address = $request->owner_address_street . ', ' .
+                   $request->owner_address_barangay . ', ' .
+                   $request->owner_address_city . ', ' .
+                   $request->owner_address_province . ', ' .
+                   $request->owner_address_postal;
+
+        $step1Data = [
+            'first_name' => $request->first_name,
+            'middle_name' => $request->middle_name,
+            'last_name' => $request->last_name,
+            'occupation_id' => $request->occupation_id,
+            'occupation_other' => $request->occupation_other_text,
+            'date_of_birth' => $request->date_of_birth,
+            'phone_number' => $request->phone_number,
+            'age' => $age,
+            'address' => $address
+        ];
+
+        // Only treat as switch mode if user is logged in and verified na ang signup (just like the contractor)
+        $user = Session::get('user');
+        if ($user && isset($user->is_verified) && $user->is_verified == 1) {
+            Session::put('switch_owner_step1', $step1Data);
+        }
+
+        // Always keep the base signup session data for the final step
+        Session::put('owner_step1', $step1Data);
+
+        Session::put('signup_step', 2);
+
+        return response()->json(['success' => true, 'step' => 2]);
+    }
+
+    // Handle Property Owner Step 2
+    public function propertyOwnerStep2(Request $request)
+    {
+        $request->validate([
+            'username' => 'required|string|max:50',
+            'email' => 'required|email|max:100',
+            'password' => 'required|string|min:8',
+            'password_confirmation' => 'required|same:password'
+        ]);
+
+        // Check if username exists
+        if ($this->accountClass->usernameExists($request->username)) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['username' => ['Username already exists']]
+            ], 422);
+        }
+
+        // Check if email exists
+        if ($this->accountClass->emailExists($request->email)) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['email' => ['Email already exists']]
+            ], 422);
+        }
+
+        // Validate password strength
+        $passwordValidation = $this->authService->validatePasswordStrength($request->password);
+        if (!$passwordValidation['valid']) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['password' => [$passwordValidation['message']]]
+            ], 422);
+        }
+
+        // Generate and send OTP
+        $otp = $this->authService->generateOtp();
+        $otpHash = $this->authService->hashOtp($otp);
+        $this->authService->sendOtpEmail($request->email, $otp);
+
+        // Store in session
+        Session::put('owner_step2', [
+            'username' => $request->username,
+            'email' => $request->email,
+            'password' => $request->password,
+            'otp_hash' => $otpHash
+        ]);
+
+        Session::put('signup_step', 3);
+
+        return response()->json(['success' => true, 'step' => 3, 'message' => 'OTP sent to email']);
+    }
+
+    // Property Owner Step 3
+    public function propertyOwnerVerifyOtp(Request $request)
+    {
+        $request->validate([
+            'otp' => 'required|string|size:6'
+        ]);
+
+        $step2Data = Session::get('owner_step2');
+
+        // Verify OTP
+        if (!$this->authService->verifyOtp($request->otp, $step2Data['otp_hash'])) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['otp' => ['Invalid OTP']]
+            ], 422);
+        }
+
+        Session::put('signup_step', 4);
+
+        return response()->json(['success' => true, 'step' => 4]);
+    }
+
+    // Property Owner Step 4
+    public function propertyOwnerStep4(Request $request)
+    {
+        $request->validate([
+            'valid_id_id' => 'required|exists:valid_ids,id',
+            'valid_id_number' => 'required|string|max:100',
+            'valid_id_photo' => 'required|file|mimes:jpg,jpeg,png|max:5120',
+            'police_clearance' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120'
+        ]);
+
+        // Validate ID number format based on ID type
+        $validationResult = $this->validateIdNumberFormat($request->valid_id_id, $request->valid_id_number);
+        if ($validationResult !== 'success') {
+            return response()->json([
+                'success' => false,
+                'errors' => ['valid_id_number' => [$validationResult]]
+            ], 422);
+        }
+
+        // Handle file uploads
+        $validIdPath = $request->file('valid_id_photo')->store('validID', 'public');
+        $policeClearancePath = $request->file('police_clearance')->store('policeClearance', 'public');
+
+        Session::put('owner_step4', [
+            'valid_id_id' => $request->valid_id_id,
+            'valid_id_number' => $request->valid_id_number,
+            'valid_id_photo' => $validIdPath,
+            'police_clearance' => $policeClearancePath
+        ]);
+
+        Session::put('signup_step', 5);
+
+        return response()->json(['success' => true, 'step' => 5]);
+    }
+
+    // Handle Property Owner Final Step
+    public function propertyOwnerFinalStep(Request $request)
+    {
+        $request->validate([
+            'profile_pic' => 'nullable|file|mimes:jpg,jpeg,png|max:2048'
+        ]);
+
+        // Get all session data
+        $step1 = Session::get('owner_step1');
+        $step2 = Session::get('owner_step2');
+        $step4 = Session::get('owner_step4');
+
+        // Check if all required session data exists
+        if (!$step1 || !$step2 || !$step4) {
+            $missing = [];
+            if (!$step1) {
+                $missing[] = 'Step 1 data';
+            }
+            if (!$step2) {
+                $missing[] = 'Step 2 data';
+            }
+            if (!$step4) {
+                $missing[] = 'Step 4 data';
+            }
+
+            return response()->json([
+                'success' => false,
+                'errors' => ['Session expired. Missing: ' . implode(', ', $missing) . '. Please start the registration process again.']
+            ], 400);
+        }
+
+        $profilePicPath = null;
+        if ($request->hasFile('profile_pic')) {
+            $profilePicPath = $request->file('profile_pic')->store('profiles', 'public');
+        }
+
+        // Create user
+        $userId = $this->accountClass->createUser([
+            'profile_pic' => $profilePicPath,
+            'username' => $step2['username'],
+            'email' => $step2['email'],
+            'password_hash' => $this->authService->hashPassword($step2['password']),
+            'OTP_hash' => $step2['otp_hash'],
+            'user_type' => 'property_owner'
+        ]);
+
+        // Create property owner
+        $this->accountClass->createPropertyOwner([
+            'user_id' => $userId,
+            'first_name' => $step1['first_name'],
+            'middle_name' => $step1['middle_name'],
+            'last_name' => $step1['last_name'],
+            'phone_number' => $step1['phone_number'],
+            'valid_id_id' => $step4['valid_id_id'],
+            'valid_id_number' => $step4['valid_id_number'],
+            'valid_id_photo' => $step4['valid_id_photo'],
+            'police_clearance' => $step4['police_clearance'],
+            'date_of_birth' => $step1['date_of_birth'],
+            'age' => $step1['age'],
+            'occupation_id' => $step1['occupation_id'],
+            'occupation_other' => $step1['occupation_other'] ?? null,
+            'address' => $step1['address']
+        ]);
+
+        // Clear session
+        Session::forget(['signup_user_type', 'signup_step', 'owner_step1', 'owner_step2', 'owner_step4']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registration successful! You can now login.',
+            'redirect' => '/accounts/login'
+        ]);
+    }
+
+    // Logout
+    public function logout()
+    {
+        Session::flush();
+        return redirect('/accounts/login')->with('success', 'Logged out successfully');
+    }
+
+    // ROLE SWITCHING METHODS
+
+    // Show role switch form
+    public function showSwitchForm()
+    {
+        if (!Session::has('user')) {
+            return redirect('/accounts/login')->with('error', 'Please login first');
+        }
+
+        $user = Session::get('user');
+        $currentRole = $user->user_type;
+
+        // Check if user already has both roles
+        if ($user->user_type === 'both') {
+            return redirect('/dashboard')->with('error', 'You already have both roles');
+        }
+
+        // Get data para sa dropdowns
+        $contractorTypes = $this->accountClass->getContractorTypes();
+        $occupations = $this->accountClass->getOccupations();
+        $validIds = $this->accountClass->getValidIds();
+        $picabCategories = ['AAAA', 'AAA', 'AA', 'A', 'B', 'C', 'D', 'Trade/E'];
+
+        $provinces = $this->psgcService->getProvinces();
+
+        $existingData = $this->getExistingUserData($user->user_id, $currentRole);
+
+        // \Log::info('Switch form existing data', [
+        //     'currentRole' => $currentRole,
+        //     'existingData' => $existingData
+        // ]);
+
+        // Reuse signup form
+        return view('accounts.signup', compact(
+            'contractorTypes',
+            'occupations',
+            'validIds',
+            'picabCategories',
+            'provinces',
+            'currentRole',
+            'existingData'
+        ))->with('isSwitchMode', true);
+    }
+
+    // Get existing user data
+    private function getExistingUserData($userId, $currentRole)
+    {
+        $data = [
+            'user' => DB::table('users')->where('user_id', $userId)->first(),
+        ];
+
+        if ($currentRole === 'contractor') {
+            $contractor = DB::table('contractors')->where('user_id', $userId)->first();
+            if ($contractor) {
+                $contractorUser = DB::table('contractor_users')->where('user_id', $userId)->first();
+                $data['contractor'] = $contractor;
+                $data['contractor_user'] = $contractorUser;
+            }
+        } elseif ($currentRole === 'property_owner') {
+            $owner = DB::table('property_owners')->where('user_id', $userId)->first();
+            if ($owner) {
+                $data['property_owner'] = $owner;
+            }
+        }
+
+        return $data;
+    }
+
+    // Switch to Contractor
+    public function switchContractorStep1(Request $request)
+    {
+        if (!Session::has('user') || !Session::has('switch_contractor_step1')) {
+            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        }
+
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'username' => 'required|string|max:50',
+            'company_email' => 'required|email|max:100',
+        ]);
+
+        // Merge with existing step 1 data
+        $step1Data = Session::get('switch_contractor_step1');
+        $step1Data = array_merge($step1Data, $validated);
+        Session::put('switch_contractor_step1', $step1Data);
+
+        return response()->json(['success' => true, 'message' => 'Account information saved']);
+    }
+
+    // Switch to Contractor Step 2
+    public function switchContractorStep2(Request $request)
+    {
+        if (!Session::has('user') || !Session::has('switch_contractor_step1')) {
+            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        }
+
+        $validated = $request->validate([
+            'picab_number' => 'required|string|max:100|unique:contractors,picab_number',
+            'picab_category' => 'required|in:AAAA,AAA,AA,A,B,C,D,Trade/E',
+            'picab_expiration_date' => 'required|date|after:today',
+            'business_permit_number' => 'required|string|max:100|unique:contractors,business_permit_number',
+            'business_permit_city' => 'required|string|max:100',
+            'business_permit_expiration' => 'required|date|after:today',
+            'tin_business_reg_number' => 'required|string|max:100|unique:contractors,tin_business_reg_number',
+            'dti_sec_registration_photo' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
+        ]);
+
+        if ($request->hasFile('dti_sec_registration_photo')) {
+            $file = $request->file('dti_sec_registration_photo');
+            $filename = time() . '_dti_sec_' . $file->getClientOriginalName();
+            $path = $file->storeAs('contractor_documents', $filename, 'public');
+            $validated['dti_sec_registration_photo'] = $path;
+        }
+
+        Session::put('switch_contractor_step2', $validated);
+        return response()->json(['success' => true, 'message' => 'Documents uploaded successfully']);
+    }
+
+    // Switch to Contractor Final
+    public function switchContractorFinal(Request $request)
+    {
+        // \Log::info('Switch Contractor Final - Started');
+        // \Log::info('Has user session: ' . (Session::has('user') ? 'YES' : 'NO'));
+        // \Log::info('Has step1 session: ' . (Session::has('switch_contractor_step1') ? 'YES' : 'NO'));
+        // \Log::info('Has step2 session: ' . (Session::has('switch_contractor_step2') ? 'YES' : 'NO'));
+
+        // if (!Session::has('user') || !Session::has('switch_contractor_step1') || !Session::has('switch_contractor_step2')) {
+        //     \Log::error('Switch Contractor Final - Session check failed');
+        //     return response()->json(['success' => false, 'errors' => ['Session expired or previous steps not completed']], 401);
+        // }
+
+        $validated = $request->validate([
+            'profile_pic' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
+        ]);
+
+        $user = Session::get('user');
+        $step1 = Session::get('switch_contractor_step1');
+        $step2 = Session::get('switch_contractor_step2');
+
+        \Log::info('Step1 Data: ' . json_encode($step1));
+        \Log::info('Step2 Data: ' . json_encode($step2));
+
+        try {
+            DB::beginTransaction();
+
+            if ($request->hasFile('profile_pic')) {
+                $file = $request->file('profile_pic');
+                $filename = time() . '_profile_' . $file->getClientOriginalName();
+                $profilePicPath = $file->storeAs('profile_pictures', $filename, 'public');
+                DB::table('users')->where('user_id', $user->user_id)->update(['profile_pic' => $profilePicPath]);
+            }
+
+            $businessAddress = $step1['business_address'];
+
+            $ownerData = DB::table('property_owners')->where('user_id', $user->user_id)->first();
+
+            $contractorId = DB::table('contractors')->insertGetId([
+                'user_id' => $user->user_id,
+                'company_name' => $step1['company_name'],
+                'years_of_experience' => $step1['years_of_experience'],
+                'type_id' => $step1['type_id'],
+                'contractor_type_other' => $step1['contractor_type_other'] ?? null,
+                'services_offered' => $step1['services_offered'],
+                'business_address' => $businessAddress,
+                'company_email' => $user->email,
+                'company_phone' => $step1['company_phone'],
+                'company_website' => $step1['company_website'],
+                'company_social_media' => $step1['company_social_media'],
+                'picab_number' => $step2['picab_number'],
+                'picab_category' => $step2['picab_category'],
+                'picab_expiration_date' => $step2['picab_expiration_date'],
+                'business_permit_number' => $step2['business_permit_number'],
+                'business_permit_city' => $step2['business_permit_city'],
+                'business_permit_expiration' => $step2['business_permit_expiration'],
+                'tin_business_reg_number' => $step2['tin_business_reg_number'],
+                'dti_sec_registration_photo' => $step2['dti_sec_registration_photo'],
+                'verification_status' => 'pending',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::table('contractor_users')->insert([
+                'contractor_id' => $contractorId,
+                'user_id' => $user->user_id,
+                'authorized_rep_lname' => $ownerData->last_name,
+                'authorized_rep_mname' => $ownerData->middle_name,
+                'authorized_rep_fname' => $ownerData->first_name,
+                'phone_number' => $ownerData->phone_number,
+                'role' => 'owner',
+                'is_active' => 1,
+                'created_at' => now(),
+            ]);
+
+            DB::table('users')->where('user_id', $user->user_id)->update([
+                'user_type' => 'both',
+                'updated_at' => now(),
+            ]);
+
+            Session::forget(['switch_contractor_step1', 'switch_contractor_step2']);
+            $updatedUser = DB::table('users')->where('user_id', $user->user_id)->first();
+            Session::put('user', $updatedUser);
+            Session::put('userType', 'both');
+
+            DB::commit();
+            return response()->json(['success' => true, 'message' => 'Role switch successful! You now have both roles.', 'redirect' => '/dashboard']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'errors' => ['An error occurred: ' . $e->getMessage()]], 500);
+        }
+    }
+
+    // DB calls are just laravel query builder
+
+    // Switch to Owner
+    public function switchOwnerStep1(Request $request)
+    {
+        if (!Session::has('user') || !Session::has('switch_owner_step1')) {
+            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        }
+
+        $validated = $request->validate([
+            'username' => 'required|string|max:50',
+            'email' => 'required|email|max:100',
+        ]);
+
+        $step1Data = Session::get('switch_owner_step1');
+        $step1Data = array_merge($step1Data, $validated);
+        Session::put('switch_owner_step1', $step1Data);
+
+        return response()->json(['success' => true, 'message' => 'Account information saved']);
+    }
+
+    // Switch to Owner Step 2
+    public function switchOwnerStep2(Request $request)
+    {
+        if (!Session::has('user') || !Session::has('switch_owner_step1')) {
+            return response()->json(['success' => false, 'errors' => ['Session expired or previous step not completed']], 401);
+        }
+
+        $validated = $request->validate([
+            'valid_id_id' => 'required|exists:valid_ids,id',
+            'valid_id_number' => 'required|string|max:100',
+            'valid_id_photo' => 'required|file|mimes:jpg,jpeg,png|max:5120',
+            'police_clearance' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
+        ]);
+
+        $idValidation = $this->validateIdNumberFormat($validated['valid_id_id'], $validated['valid_id_number']);
+        if ($idValidation !== 'success') {
+            return response()->json(['success' => false, 'errors' => ['valid_id_number' => [$idValidation]]], 422);
+        }
+
+        if ($request->hasFile('valid_id_photo')) {
+            $file = $request->file('valid_id_photo');
+            $filename = time() . '_valid_id_' . $file->getClientOriginalName();
+            $path = $file->storeAs('owner_documents', $filename, 'public');
+            $validated['valid_id_photo'] = $path;
+        }
+
+        if ($request->hasFile('police_clearance')) {
+            $file = $request->file('police_clearance');
+            $filename = time() . '_police_' . $file->getClientOriginalName();
+            $path = $file->storeAs('owner_documents', $filename, 'public');
+            $validated['police_clearance'] = $path;
+        }
+
+        Session::put('switch_owner_step2', $validated);
+        return response()->json(['success' => true, 'message' => 'Documents uploaded successfully']);
+    }
+
+    // Switch to Owner Final
+    public function switchOwnerFinal(Request $request)
+    {
+        if (!Session::has('user') || !Session::has('switch_owner_step1') || !Session::has('switch_owner_step2')) {
+            return response()->json(['success' => false, 'errors' => ['Session expired or previous steps not completed']], 401);
+        }
+
+        $validated = $request->validate([
+            'profile_pic' => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
+        ]);
+
+        $user = Session::get('user');
+        $step1 = Session::get('switch_owner_step1');
+        $step2 = Session::get('switch_owner_step2');
+
+        try {
+            DB::beginTransaction();
+
+            if ($request->hasFile('profile_pic')) {
+                $file = $request->file('profile_pic');
+                $filename = time() . '_profile_' . $file->getClientOriginalName();
+                $profilePicPath = $file->storeAs('profile_pictures', $filename, 'public');
+                DB::table('users')->where('user_id', $user->user_id)->update(['profile_pic' => $profilePicPath]);
+            }
+
+            $address = $step1['address'];
+
+            $contractorUser = DB::table('contractor_users')->where('user_id', $user->user_id)->first();
+
+            DB::table('property_owners')->insert([
+                'user_id' => $user->user_id,
+                'last_name' => $contractorUser->authorized_rep_lname,
+                'middle_name' => $contractorUser->authorized_rep_mname,
+                'first_name' => $contractorUser->authorized_rep_fname,
+                'phone_number' => $contractorUser->phone_number,
+                'address' => $address,
+                'valid_id_id' => $step2['valid_id_id'],
+                'valid_id_number' => $step2['valid_id_number'],
+                'valid_id_photo' => $step2['valid_id_photo'],
+                'police_clearance' => $step2['police_clearance'],
+                'date_of_birth' => $step1['date_of_birth'],
+                'age' => $step1['age'],
+                'occupation_id' => $step1['occupation_id'],
+                'occupation_other' => $step1['occupation_other'] ?? null,
+                'verification_status' => 'pending',
+                'verification_date' => null,
+                'created_at' => now(),
+            ]);
+
+            DB::table('users')->where('user_id', $user->user_id)->update([
+                'user_type' => 'both',
+                'updated_at' => now(),
+            ]);
+
+            Session::forget(['switch_owner_step1', 'switch_owner_step2']);
+            $updatedUser = DB::table('users')->where('user_id', $user->user_id)->first();
+            Session::put('user', $updatedUser);
+            Session::put('userType', 'both');
+
+            DB::commit();
+            return response()->json(['success' => true, 'message' => 'Role switch successful! You now have both roles.', 'redirect' => '/dashboard']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'errors' => ['An error occurred: ' . $e->getMessage()]], 500);
+        }
+    }
+
+    // PSGC API Endpoints
+
+    public function getProvinces()
+    {
+        $provinces = $this->psgcService->getProvinces();
+        return response()->json($provinces);
+    }
+
+    public function getCitiesByProvince($provinceCode)
+    {
+        $cities = $this->psgcService->getCitiesByProvince($provinceCode);
+        return response()->json($cities);
+    }
+
+    public function getBarangaysByCity($cityCode)
+    {
+        $barangays = $this->psgcService->getBarangaysByCity($cityCode);
+        return response()->json($barangays);
+    }
+}
+
+			Controller.php
+		Request
+			StoreContractorProjectRequest.php<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreContractorProjectRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'contractor_id' => ['required', 'integer', 'exists:contractors,contractor_id'],
+            'project_title' => ['required', 'string', 'max:200'],
+            'project_description' => ['required', 'string'],
+            'project_location' => ['required', 'string', 'max:500'],
+            // Media upload (photo/video) - optional
+            'media' => ['nullable', 'array'],
+            'media.*' => ['file', 'mimes:jpg,jpeg,png,webp,mp4,mov,avi', 'max:10240'], // 10MB max per file
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'project_title.required' => 'Header/Title is required.',
+            'project_description.required' => 'Description is required.',
+        ];
+    }
+}
+			StoreProjectRequest.php<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreProjectRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'owner_id' => ['required', 'integer', 'exists:property_owners,owner_id'],
+            'project_title' => ['required', 'string', 'max:200'],
+            'project_description' => ['required', 'string'],
+            // Property Address fields
+            'street_address' => ['required', 'string', 'max:255'],
+            'city_municipality' => ['required', 'string', 'max:255'],
+            'province_state_region' => ['required', 'string', 'max:255'],
+            'postal_code' => ['required', 'string', 'max:10'],
+            // Property Details
+            'property_type' => ['required', 'in:Residential,Commercial,Industrial,Agricultural'],
+            'lot_size' => ['required', 'integer', 'min:0'],
+            'floor_area' => ['required', 'array', 'min:1'],
+            'floor_area.*' => ['required', 'numeric', 'min:0'],
+            // Target Timeline
+            'timeline_min' => ['required', 'integer', 'min:1'],
+            'timeline_max' => ['required', 'integer', 'min:1', 'gte:timeline_min'],
+            // Budget
+            'budget_range_min' => ['required', 'numeric', 'min:0'],
+            'budget_range_max' => ['required', 'numeric', 'min:0', 'gte:budget_range_min'],
+            // Bidding Deadline
+            'bidding_deadline' => ['required', 'date', 'after:today'],
+            // Contractor Type
+            'type_id' => ['required', 'integer', 'exists:contractor_types,type_id'],
+            'contractor_type_other' => ['nullable', 'string', 'max:200', 'required_if:type_id,9'],
+            // File Uploads
+            'house_photos' => ['nullable', 'array'],
+            'house_photos.*' => ['file', 'mimes:jpg,jpeg,png,webp', 'max:10240'], // 10MB max per image
+            'land_title' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'], // 10MB max
+            'blueprint' => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'], // 10MB max
+            'supporting_documents' => ['nullable', 'array'],
+            'supporting_documents.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png,zip', 'max:10240'], // 10MB max per file
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'land_title.required' => 'Land title document is required for verification.',
+            'timeline_max.gte' => 'Maximum timeline must be greater than or equal to minimum timeline.',
+            'budget_range_max.gte' => 'Maximum budget must be greater than or equal to minimum budget.',
+            'bidding_deadline.after' => 'Bidding deadline must be a future date.',
+        ];
+    }
+}
+
+
+
+			UpdateProjectRequest.php<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UpdateProjectRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'owner_id' => ['sometimes', 'integer', 'exists:property_owners,owner_id'],
+            'project_title' => ['sometimes', 'required', 'string', 'max:200'],
+            'project_description' => ['sometimes', 'required', 'string'],
+            'project_location' => ['sometimes', 'required', 'string'],
+            'budget_range_min' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'budget_range_max' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'lot_size' => ['sometimes', 'required', 'integer', 'min:0'],
+            'property_type' => ['sometimes', 'required', 'in:Residential,Commercial,Industrial,Agricultural'],
+            'type_id' => ['sometimes', 'required', 'integer', 'exists:contractor_types,type_id'],
+            'to_finish' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'project_status' => ['sometimes', 'in:open,bidding_closed,in_progress,completed,terminated'],
+            'selected_contractor_id' => ['sometimes', 'nullable', 'integer', 'exists:contractors,contractor_id'],
+            'bidding_deadline' => ['sometimes', 'required', 'date'],
+        ];
+    }
+}
+
+
+
+		Resources
+			ProjectResource.php<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class ProjectResource extends JsonResource
+{
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'project_id' => $this->project_id,
+            'owner_id' => $this->owner_id,
+            'project_title' => $this->project_title,
+            'project_description' => $this->project_description,
+            'project_location' => $this->project_location,
+            'budget_range_min' => $this->budget_range_min,
+            'budget_range_max' => $this->budget_range_max,
+            'lot_size' => $this->lot_size,
+            'property_type' => $this->property_type,
+            'type_id' => $this->type_id,
+            'to_finish' => $this->to_finish,
+            'project_status' => $this->project_status,
+            'selected_contractor_id' => $this->selected_contractor_id,
+            'bidding_deadline' => $this->bidding_deadline,
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+        ];
+    }
+}
+
+
+
+	Models
+		accounts
+		Contractor
+		PropertyOwner
+		User.php
+	Providers
+		AppServiceProvider.php
+	Services
+		authService.php<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+
+class authService
+{
+    // Generate a 6-digit OTP
+    public function generateOtp()
+    {
+        return str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+    }
+
+    public function hashOtp($otp)
+    {
+        return Hash::make($otp);
+    }
+
+    public function verifyOtp($inputOtp, $hashedOtp)
+    {
+        return Hash::check($inputOtp, $hashedOtp);
+    }
+
+    public function hashPassword($password)
+    {
+        return Hash::make($password);
+    }
+
+    public function verifyPassword($inputPassword, $hashedPassword)
+    {
+        return Hash::check($inputPassword, $hashedPassword);
+    }
+
+    public function sendOtpEmail($email, $otp)
+    {
+        // \Log::info("OTP for {$email}: {$otp}");
+
+        try {
+            \Mail::raw("Your OTP code is: {$otp}\n\nThis code will expire soon. Please do not share this code with anyone.", function($message) use ($email) {
+                $message->to($email)
+                        ->subject('Legatura - Your OTP Code');
+            });
+            return true;
+        } catch (\Exception $e) {
+            \Log::error("Failed to send OTP email to {$email}: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function attemptUserLogin($username, $password)
+    {
+        $user = DB::table('users')
+            ->where('username', $username)
+            ->orWhere('email', $username)
+            ->first();
+
+        if ($user && $this->verifyPassword($password, $user->password_hash)) {
+            if (!$user->is_active) {
+                return [
+                    'success' => false,
+                    'message' => 'Account is inactive'
+                ];
+            }
+
+            if (!$user->is_verified) {
+                return [
+                    'success' => false,
+                    'message' => 'Your account is waiting for verification. Please wait for admin approval.'
+                ];
+            }
+
+            return [
+                'success' => true,
+                'user' => $user,
+                'userType' => 'user'
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => 'Invalid credentials'
+        ];
+    }
+
+    public function attemptAdminLogin($username, $password)
+    {
+        $admin = DB::table('admin_users')
+            ->where('username', $username)
+            ->orWhere('email', $username)
+            ->first();
+
+        if ($admin && $this->verifyPassword($password, $admin->password_hash)) {
+            if ($admin->is_active) {
+                return [
+                    'success' => true,
+                    'user' => $admin,
+                    'userType' => 'admin'
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Admin account is inactive'
+                ];
+            }
+        }
+
+        return [
+            'success' => false,
+            'message' => 'Invalid credentials'
+        ];
+    }
+
+    public function login($username, $password)
+    {
+        $userLogin = $this->attemptUserLogin($username, $password);
+        if ($userLogin['success']) {
+            return $userLogin;
+        }
+
+        $user = DB::table('users')
+            ->where('username', $username)
+            ->orWhere('email', $username)
+            ->first();
+
+        if ($user) {
+            return $userLogin;
+        }
+
+        $adminLogin = $this->attemptAdminLogin($username, $password);
+        if ($adminLogin['success']) {
+            return $adminLogin;
+        }
+
+        return [
+            'success' => false,
+            'message' => 'Invalid username or password'
+        ];
+    }
+
+    public function validatePasswordStrength($password)
+    {
+        if (strlen($password) < 8) {
+            return [
+                'valid' => false,
+                'message' => 'Password must be at least 8 characters'
+            ];
+        }
+
+        if (!preg_match('/[A-Z]/', $password)) {
+            return [
+                'valid' => false,
+                'message' => 'Password must contain at least one uppercase letter'
+            ];
+        }
+
+        if (!preg_match('/[0-9]/', $password)) {
+            return [
+                'valid' => false,
+                'message' => 'Password must contain at least one number'
+            ];
+        }
+
+        if (!preg_match('/[!@#$%^&*(),.?":{}|<>]/', $password)) {
+            return [
+                'valid' => false,
+                'message' => 'Password must contain at least one special character'
+            ];
+        }
+
+        return ['valid' => true];
+    }
+
+    public function calculateAge($dateOfBirth)
+    {
+        $dob = new \DateTime($dateOfBirth);
+        $now = new \DateTime();
+        $age = $now->diff($dob)->y;
+        return $age;
+    }
+}
+
+		psgcApiService.php<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
+
+class psgcApiService
+{
+    protected $baseUrl = 'https://psgc.gitlab.io/api';
+
+    // Get all provinces
+    public function getProvinces()
+    {
+        try {
+            return Cache::remember('psgc_provinces', 86400, function () {
+                $response = Http::get($this->baseUrl . '/provinces/');
+
+                if ($response->successful()) {
+                    $provinces = $response->json();
+                    // Sort by name
+                    usort($provinces, function($a, $b) {
+                        return strcmp($a['name'], $b['name']);
+                    });
+                    return $provinces;
+                }
+
+                return $this->getFallbackProvinces();
+            });
+        } catch (\Exception $e) {
+            return $this->getFallbackProvinces();
+        }
+    }
+
+    // Get cities/municipalities by province code
+    public function getCitiesByProvince($provinceCode)
+    {
+        try {
+            return Cache::remember('psgc_cities_' . $provinceCode, 86400, function () use ($provinceCode) {
+                $response = Http::get($this->baseUrl . '/provinces/' . $provinceCode . '/cities-municipalities/');
+
+                if ($response->successful()) {
+                    $cities = $response->json();
+                    usort($cities, function($a, $b) {
+                        return strcmp($a['name'], $b['name']);
+                    });
+                    return $cities;
+                }
+
+                return [];
+            });
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    // Get barangays by city/municipality code
+    public function getBarangaysByCity($cityCode)
+    {
+        try {
+            return Cache::remember('psgc_barangays_' . $cityCode, 86400, function () use ($cityCode) {
+                $response = Http::get($this->baseUrl . '/cities-municipalities/' . $cityCode . '/barangays/');
+
+                if ($response->successful()) {
+                    $barangays = $response->json();
+                    usort($barangays, function($a, $b) {
+                        return strcmp($a['name'], $b['name']);
+                    });
+                    return $barangays;
+                }
+
+                return [];
+            });
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    // Fallback provinces if API fails
+    private function getFallbackProvinces()
+    {
+        $provinces = [
+            ['code' => '0128', 'name' => 'Ilocos Norte'],
+            ['code' => '0129', 'name' => 'Ilocos Sur'],
+            ['code' => '0133', 'name' => 'La Union'],
+            ['code' => '0155', 'name' => 'Pangasinan'],
+            ['code' => '0209', 'name' => 'Batanes'],
+            ['code' => '0215', 'name' => 'Cagayan'],
+            ['code' => '0231', 'name' => 'Isabela'],
+            ['code' => '0250', 'name' => 'Nueva Vizcaya'],
+            ['code' => '0257', 'name' => 'Quirino'],
+            ['code' => '0314', 'name' => 'Bataan'],
+            ['code' => '0321', 'name' => 'Bulacan'],
+            ['code' => '0337', 'name' => 'Nueva Ecija'],
+            ['code' => '0349', 'name' => 'Pampanga'],
+            ['code' => '0354', 'name' => 'Tarlac'],
+            ['code' => '0369', 'name' => 'Zambales'],
+            ['code' => '0371', 'name' => 'Aurora'],
+            ['code' => '0410', 'name' => 'Batangas'],
+            ['code' => '0421', 'name' => 'Cavite'],
+            ['code' => '0434', 'name' => 'Laguna'],
+            ['code' => '0456', 'name' => 'Quezon'],
+            ['code' => '0458', 'name' => 'Rizal'],
+            ['code' => '0548', 'name' => 'Marinduque'],
+            ['code' => '0517', 'name' => 'Occidental Mindoro'],
+            ['code' => '0520', 'name' => 'Oriental Mindoro'],
+            ['code' => '0541', 'name' => 'Palawan'],
+            ['code' => '0559', 'name' => 'Romblon'],
+            ['code' => '0605', 'name' => 'Albay'],
+            ['code' => '0616', 'name' => 'Camarines Norte'],
+            ['code' => '0619', 'name' => 'Camarines Sur'],
+            ['code' => '0620', 'name' => 'Catanduanes'],
+            ['code' => '0638', 'name' => 'Masbate'],
+            ['code' => '0656', 'name' => 'Sorsogon'],
+            ['code' => '0704', 'name' => 'Aklan'],
+            ['code' => '0706', 'name' => 'Antique'],
+            ['code' => '0719', 'name' => 'Capiz'],
+            ['code' => '0730', 'name' => 'Iloilo'],
+            ['code' => '0745', 'name' => 'Guimaras'],
+            ['code' => '0746', 'name' => 'Negros Occidental'],
+            ['code' => '0761', 'name' => 'Bohol'],
+            ['code' => '0772', 'name' => 'Cebu'],
+            ['code' => '0746', 'name' => 'Negros Oriental'],
+            ['code' => '0852', 'name' => 'Siquijor'],
+            ['code' => '0826', 'name' => 'Eastern Samar'],
+            ['code' => '0837', 'name' => 'Leyte'],
+            ['code' => '0848', 'name' => 'Northern Samar'],
+            ['code' => '0860', 'name' => 'Samar'],
+            ['code' => '0864', 'name' => 'Southern Leyte'],
+            ['code' => '0878', 'name' => 'Biliran'],
+            ['code' => '0972', 'name' => 'Zamboanga del Norte'],
+            ['code' => '0973', 'name' => 'Zamboanga del Sur'],
+            ['code' => '0983', 'name' => 'Zamboanga Sibugay'],
+            ['code' => '1013', 'name' => 'Bukidnon'],
+            ['code' => '1018', 'name' => 'Camiguin'],
+            ['code' => '1035', 'name' => 'Lanao del Norte'],
+            ['code' => '1042', 'name' => 'Misamis Occidental'],
+            ['code' => '1043', 'name' => 'Misamis Oriental'],
+            ['code' => '1123', 'name' => 'Davao de Oro'],
+            ['code' => '1124', 'name' => 'Davao del Norte'],
+            ['code' => '1125', 'name' => 'Davao del Sur'],
+            ['code' => '1126', 'name' => 'Davao Occidental'],
+            ['code' => '1182', 'name' => 'Davao Oriental'],
+            ['code' => '1247', 'name' => 'Cotabato'],
+            ['code' => '1263', 'name' => 'South Cotabato'],
+            ['code' => '1265', 'name' => 'Sultan Kudarat'],
+            ['code' => '1280', 'name' => 'Sarangani'],
+            ['code' => '1298', 'name' => 'Cotabato City'],
+            ['code' => '1339', 'name' => 'NCR, City of Manila'],
+            ['code' => '1374', 'name' => 'Abra'],
+            ['code' => '1401', 'name' => 'Benguet'],
+            ['code' => '1427', 'name' => 'Ifugao'],
+            ['code' => '1432', 'name' => 'Kalinga'],
+            ['code' => '1444', 'name' => 'Mountain Province'],
+            ['code' => '1481', 'name' => 'Apayao'],
+            ['code' => '1507', 'name' => 'Basilan'],
+            ['code' => '1512', 'name' => 'Lanao del Sur'],
+            ['code' => '1536', 'name' => 'Maguindanao'],
+            ['code' => '1566', 'name' => 'Sulu'],
+            ['code' => '1570', 'name' => 'Tawi-Tawi'],
+            ['code' => '1602', 'name' => 'Agusan del Norte'],
+            ['code' => '1603', 'name' => 'Agusan del Sur'],
+            ['code' => '1667', 'name' => 'Surigao del Norte'],
+            ['code' => '1668', 'name' => 'Surigao del Sur'],
+            ['code' => '1685', 'name' => 'Dinagat Islands']
+        ];
+
+        usort($provinces, function($a, $b) {
+            return strcmp($a['name'], $b['name']);
+        });
+
+        return $provinces;
+    }
+}
+
+bootstrap
+config
+database
+node_modules
+public
+resources
+	css
+	js
+	views
+		accounts
+		admin
+		both
+		contractor
+		projects
+		startpoint.blade.php
+routes
+	api.php<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\ProjectController;
+
+// Auth: issue token (for React Native)
+Route::post('/auth/token', function (Request $request) {
+    $request->validate([
+        'email' => ['required', 'email'],
+        'password' => ['required'],
+        'device_name' => ['required', 'string'],
+    ]);
+
+    $user = \App\Models\User::where('email', $request->string('email'))->first();
+
+    if (! $user || ! \Illuminate\Support\Facades\Hash::check($request->string('password'), $user->password)) {
+        return response()->json(['message' => 'Invalid credentials'], 422);
+    }
+
+    $token = $user->createToken($request->string('device_name'))->plainTextToken;
+    return response()->json(['token' => $token]);
+});
+
+// Projects CRUD (protected)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('projects', ProjectController::class);
+});
+
+
+
+	console.php<?php
+
+use Illuminate\Foundation\Inspiring;
+use Illuminate\Support\Facades\Artisan;
+
+Artisan::command('inspire', function () {
+    $this->comment(Inspiring::quote());
+})->purpose('Display an inspiring quote');
+
+	web.php<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\authController;
+use App\Http\Controllers\contractor\cprocessController;
+
+Route::get('/', function () {
+    return view('startPoint');
+});
+
+// Authentication Routes
+Route::get('/accounts/login', [authController::class, 'showLoginForm']);
+Route::post('/accounts/login', [authController::class, 'login']);
+Route::get('/accounts/signup', [authController::class, 'showSignupForm']);
+Route::post('/accounts/logout', [authController::class, 'logout']);
+Route::get('/accounts/logout', [authController::class, 'logout']);
+
+// Contractor Signup Routes
+Route::post('/accounts/signup/contractor/step1', [authController::class, 'contractorStep1']);
+Route::post('/accounts/signup/contractor/step2', [authController::class, 'contractorStep2']);
+Route::post('/accounts/signup/contractor/step3/verify-otp', [authController::class, 'contractorVerifyOtp']);
+Route::post('/accounts/signup/contractor/step4', [authController::class, 'contractorStep4']);
+Route::post('/accounts/signup/contractor/final', [authController::class, 'contractorFinalStep']);
+
+// Property Owner Signup Routes
+Route::post('/accounts/signup/owner/step1', [authController::class, 'propertyOwnerStep1']);
+Route::post('/accounts/signup/owner/step2', [authController::class, 'propertyOwnerStep2']);
+Route::post('/accounts/signup/owner/step3/verify-otp', [authController::class, 'propertyOwnerVerifyOtp']);
+Route::post('/accounts/signup/owner/step4', [authController::class, 'propertyOwnerStep4']);
+Route::post('/accounts/signup/owner/final', [authController::class, 'propertyOwnerFinalStep']);
+
+// Role Switch Routes
+Route::get('/accounts/switch', [authController::class, 'showSwitchForm']);
+Route::post('/accounts/switch/contractor/step1', [authController::class, 'switchContractorStep1']);
+Route::post('/accounts/switch/contractor/step2', [authController::class, 'switchContractorStep2']);
+Route::post('/accounts/switch/contractor/final', [authController::class, 'switchContractorFinal']);
+Route::post('/accounts/switch/owner/step1', [authController::class, 'switchOwnerStep1']);
+Route::post('/accounts/switch/owner/step2', [authController::class, 'switchOwnerStep2']);
+Route::post('/accounts/switch/owner/final', [authController::class, 'switchOwnerFinal']);
+
+// PSGC API Routes
+Route::get('/api/psgc/provinces', [authController::class, 'getProvinces']);
+Route::get('/api/psgc/provinces/{provinceCode}/cities', [authController::class, 'getCitiesByProvince']);
+Route::get('/api/psgc/cities/{cityCode}/barangays', [authController::class, 'getBarangaysByCity']);
+
+// Dashboard Routes
+Route::get('/admin/dashboard', function() {
+    return view('admin.dashboard');
+});
+
+Route::get('/dashboard', function() {
+    return view('both.dashboard');
+});
+
+// Contractor Milestone Setup Routes
+Route::get('/contractor/milestone/setup', [cprocessController::class, 'showMilestoneSetupForm']);
+Route::post('/contractor/milestone/setup/step1', [cprocessController::class, 'milestoneStepOne']);
+Route::post('/contractor/milestone/setup/step2', [cprocessController::class, 'milestoneStepTwo']);
+Route::post('/contractor/milestone/setup/submit', [cprocessController::class, 'submitMilestone']);
+
+
+
+	

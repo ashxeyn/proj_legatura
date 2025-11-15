@@ -1,16 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Legatura</title>
-</head>
-<body>
-    <h1>Admin Dashboard</h1>
-    <p>Welcome, {{ session('user')->username ?? 'Admin' }}!</p>
+@extends('admin.layouts.app')
 
-    <div>
-        <a href="/accounts/logout">Logout</a>
-    </div>
-</body>
-</html>
+@section('title','Dashboard')
+
+@section('content')
+<h1>Admin Dashboard</h1>
+<div class="row">
+  <div class="col-md-3"><div class="card p-3">Total Projects: {{ $totalProjects }}</div></div>
+  <div class="col-md-3"><div class="card p-3">Open Projects: {{ $openProjects }}</div></div>
+  <div class="col-md-3"><div class="card p-3">Pending Verifications: {{ $pendingVerifications }}</div></div>
+  <div class="col-md-3"><div class="card p-3">Open Disputes: {{ $openDisputes }}</div></div>
+</div>
+@endsection
