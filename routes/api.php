@@ -2,7 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\projectPosting\projectPostingController;
 
 // Auth: issue token (for React Native)
 Route::post('/auth/token', function (Request $request) {
@@ -24,7 +24,12 @@ Route::post('/auth/token', function (Request $request) {
 
 // Projects CRUD (protected)
 Route::middleware('auth:sanctum')->group(function () {
-    Route::apiResource('projects', ProjectController::class);
+    Route::get('projects', [projectPostingController::class, 'apiIndex'])->name('api.projects.index');
+    Route::post('projects', [projectPostingController::class, 'apiStore'])->name('api.projects.store');
+    Route::get('projects/{project}', [projectPostingController::class, 'apiShow'])->name('api.projects.show');
+    Route::put('projects/{project}', [projectPostingController::class, 'apiUpdate'])->name('api.projects.update');
+    Route::patch('projects/{project}', [projectPostingController::class, 'apiUpdate'])->name('api.projects.update');
+    Route::delete('projects/{project}', [projectPostingController::class, 'apiDestroy'])->name('api.projects.destroy');
 });
 
 

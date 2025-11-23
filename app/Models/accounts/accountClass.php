@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 class accountClass
 {
+    // Get all contractor types
     public function getContractorTypes()
     {
         return DB::table('contractor_types')
@@ -13,6 +14,7 @@ class accountClass
             ->get();
     }
 
+    // Get all occupations
     public function getOccupations()
     {
         return DB::table('occupations')
@@ -20,11 +22,13 @@ class accountClass
             ->get();
     }
 
+    // Get all valid IDs
     public function getValidIds()
     {
         return DB::table('valid_ids')->orderBy('valid_id_name', 'asc')->get();
     }
 
+    // Get PICAB categories from enum
     public function getPicabCategories()
     {
         $result = DB::select("SHOW COLUMNS FROM contractors WHERE Field = 'picab_category'");
@@ -43,6 +47,7 @@ class accountClass
         return $values;
     }
 
+    // Check if username exists
     public function usernameExists($username)
     {
         $userExists = DB::table('users')->where('username', $username)->exists();
@@ -50,6 +55,7 @@ class accountClass
         return $userExists || $adminExists;
     }
 
+    // Check if email exists
     public function emailExists($email)
     {
         $userExists = DB::table('users')->where('email', $email)->exists();
@@ -57,11 +63,13 @@ class accountClass
         return $userExists || $adminExists;
     }
 
+    // Check if company email exists
     public function companyEmailExists($companyEmail)
     {
         return DB::table('contractors')->where('company_email', $companyEmail)->exists();
     }
 
+    // Create user record
     public function createUser($data)
     {
         $userId = DB::table('users')->insertGetId([
@@ -80,6 +88,7 @@ class accountClass
         return $userId;
     }
 
+    // Create contractor record
     public function createContractor($data)
     {
         $contractorId = DB::table('contractors')->insertGetId([
@@ -103,7 +112,6 @@ class accountClass
             'tin_business_reg_number' => $data['tin_business_reg_number'],
             'dti_sec_registration_photo' => $data['dti_sec_registration_photo'],
             'verification_status' => 'pending',
-            'verification_date' => null,
             'created_at' => now(),
             'updated_at' => now()
         ]);
@@ -111,6 +119,7 @@ class accountClass
         return $contractorId;
     }
 
+    // Create contractor user record
     public function createContractorUser($data)
     {
         $contractorUserId = DB::table('contractor_users')->insertGetId([
@@ -128,6 +137,7 @@ class accountClass
         return $contractorUserId;
     }
 
+    // Create property owner record
     public function createPropertyOwner($data)
     {
         $ownerId = DB::table('property_owners')->insertGetId([
@@ -145,29 +155,31 @@ class accountClass
             'occupation_id' => $data['occupation_id'],
             'occupation_other' => $data['occupation_other'] ?? null,
             'address' => $data['address'] ?? null,
-            'verification_status' => 'pending',
-            'verification_date' => null,
             'created_at' => now()
         ]);
 
         return $ownerId;
     }
 
+    // Get user by ID
     public function getUserById($userId)
     {
         return DB::table('users')->where('user_id', $userId)->first();
     }
 
+    // Get contractor by user ID
     public function getContractorByUserId($userId)
     {
         return DB::table('contractors')->where('user_id', $userId)->first();
     }
 
+    // Get property owner by user ID
     public function getPropertyOwnerByUserId($userId)
     {
         return DB::table('property_owners')->where('user_id', $userId)->first();
     }
 
+    // Update user profile picture
     public function updateUserProfilePic($userId, $profilePicPath)
     {
         return DB::table('users')
@@ -175,6 +187,7 @@ class accountClass
             ->update(['profile_pic' => $profilePicPath]);
     }
 
+    // Update OTP hash
     public function updateOtpHash($userId, $otpHash)
     {
         return DB::table('users')
@@ -182,6 +195,7 @@ class accountClass
             ->update(['OTP_hash' => $otpHash]);
     }
 
+    // Verify user (mark as verified)
     public function verifyUser($userId)
     {
         return DB::table('users')
@@ -189,6 +203,7 @@ class accountClass
             ->update(['is_verified' => 1]);
     }
 
+    // Create admin user
     public function createAdminUser($data)
     {
         $adminId = DB::table('admin_users')->insertGetId([
