@@ -66,4 +66,6 @@ class DisputeAdminController extends Controller
             return back()->with('error','Failed to resolve dispute: '.$e->getMessage());
         }
     }
+
+    
 }

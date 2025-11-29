@@ -12,6 +12,7 @@
     <div class="collapse navbar-collapse">
       <ul class="navbar-nav me-auto">
         <li class="nav-item"><a href="{{ route('admin.projects.index') }}" class="nav-link">Projects</a></li>
+        <li class="nav-item"><a href="{{ route('admin.bids.index') }}" class="nav-link">Bids</a></li>
         <li class="nav-item"><a href="{{ route('admin.disputes.index') }}" class="nav-link">Disputes</a></li>
       </ul>
       <form method="post" action="/accounts/logout">@csrf<button class="btn btn-outline-light">Logout</button></form>
