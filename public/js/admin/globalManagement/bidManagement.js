@@ -98,6 +98,152 @@ document.addEventListener('DOMContentLoaded', () => {
 		return `${months} months / ${days} days`;
 	}
 
+	// ===== VIEW BID MODAL INTERACTIVITY =====
+	
+	// Status Banner Expand/Collapse
+	const viewExpandBtn = evalModal?.querySelector('.view-expand-btn');
+	const viewExpandContent = evalModal?.querySelector('.view-expand-content');
+	
+	if (viewExpandBtn && viewExpandContent) {
+		viewExpandBtn.addEventListener('click', () => {
+			const isHidden = viewExpandContent.classList.contains('hidden');
+			
+			if (isHidden) {
+				viewExpandContent.classList.remove('hidden');
+				setTimeout(() => viewExpandContent.classList.add('show'), 10);
+				viewExpandBtn.classList.add('active');
+			} else {
+				viewExpandContent.classList.remove('show');
+				setTimeout(() => viewExpandContent.classList.add('hidden'), 400);
+				viewExpandBtn.classList.remove('active');
+			}
+		});
+	}
+
+	// Info Cards Hover Animation Enhancement
+	const viewInfoCards = evalModal?.querySelectorAll('.view-info-card');
+	if (viewInfoCards) {
+		viewInfoCards.forEach(card => {
+			card.addEventListener('mouseenter', () => {
+				card.style.transform = 'translateY(-4px) scale(1.02)';
+			});
+			card.addEventListener('mouseleave', () => {
+				card.style.transform = '';
+			});
+		});
+	}
+
+	// File Download Buttons with Feedback
+	const downloadButtons = evalModal?.querySelectorAll('[title="Download"]');
+	if (downloadButtons) {
+		downloadButtons.forEach(btn => {
+			btn.addEventListener('click', (e) => {
+				e.preventDefault();
+				
+				// Visual feedback
+				const originalContent = btn.innerHTML;
+				btn.innerHTML = '<i class="fi fi-rr-check text-green-600"></i>';
+				btn.classList.add('bg-green-100');
+				
+				setTimeout(() => {
+					btn.innerHTML = originalContent;
+					btn.classList.remove('bg-green-100');
+				}, 1500);
+				
+				// Simulate download (replace with actual download logic)
+				console.log('Download initiated');
+			});
+		});
+	}
+
+	// Export PDF Button with Loading State
+	const exportPdfBtn = evalModal?.querySelector('button:has(+ button)');
+	if (exportPdfBtn && exportPdfBtn.textContent.includes('Export')) {
+		exportPdfBtn.addEventListener('click', () => {
+			const originalText = exportPdfBtn.textContent;
+			exportPdfBtn.innerHTML = '<i class="fi fi-rr-spinner animate-spin mr-2"></i>Exporting...';
+			exportPdfBtn.disabled = true;
+			
+			// Simulate export process
+			setTimeout(() => {
+				exportPdfBtn.innerHTML = '<i class="fi fi-rr-check mr-2"></i>Exported!';
+				setTimeout(() => {
+					exportPdfBtn.textContent = originalText;
+					exportPdfBtn.disabled = false;
+				}, 2000);
+			}, 1500);
+		});
+	}
+
+	// Process Decision Button with Animation
+	const processDecisionBtn = evalModal?.querySelector('.from-indigo-600');
+	if (processDecisionBtn && processDecisionBtn.textContent.includes('Process')) {
+		processDecisionBtn.addEventListener('click', () => {
+			// Add ripple effect
+			const ripple = document.createElement('span');
+			ripple.style.cssText = `
+				position: absolute;
+				border-radius: 50%;
+				background: rgba(255, 255, 255, 0.6);
+				width: 100px;
+				height: 100px;
+				margin-left: -50px;
+				margin-top: -50px;
+				animation: ripple 0.6s;
+				pointer-events: none;
+			`;
+			
+			const rect = processDecisionBtn.getBoundingClientRect();
+			ripple.style.left = '50%';
+			ripple.style.top = '50%';
+			
+			processDecisionBtn.style.position = 'relative';
+			processDecisionBtn.style.overflow = 'hidden';
+			processDecisionBtn.appendChild(ripple);
+			
+			setTimeout(() => ripple.remove(), 600);
+			
+			// Show confirmation or navigate
+			console.log('Process decision clicked');
+		});
+	}
+
+	// Add CSS for ripple animation dynamically
+	if (!document.querySelector('#viewModalRippleStyle')) {
+		const style = document.createElement('style');
+		style.id = 'viewModalRippleStyle';
+		style.textContent = `
+			@keyframes ripple {
+				from {
+					opacity: 1;
+					transform: scale(0);
+				}
+				to {
+					opacity: 0;
+					transform: scale(2);
+				}
+			}
+		`;
+		document.head.appendChild(style);
+	}
+
+	// Smooth Scroll to Sections
+	const bidDetailsSection = evalModal?.querySelector('.space-y-6 > div:nth-child(3)');
+	if (bidDetailsSection) {
+		bidDetailsSection.setAttribute('id', 'bidDetailsSection');
+	}
+
+	// Close Modal with Escape Key
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape') {
+			if (evalModal && evalModal.classList.contains('flex')) {
+				close(evalModal);
+			}
+		}
+	});
+
+	// ===== END VIEW BID MODAL INTERACTIVITY =====
+
 	function open(el) {
 		if (!el) return;
 		el.classList.remove('hidden');

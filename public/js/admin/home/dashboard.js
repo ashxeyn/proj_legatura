@@ -358,4 +358,6 @@ document.addEventListener('DOMContentLoaded', function() {
       },
     });
   }
+
+  // notifications dropdown moved to mainComponents.js
 });

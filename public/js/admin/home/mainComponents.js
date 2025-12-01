@@ -114,5 +114,77 @@
             }
         });
     });
-})();
 
+    // ================= Notifications Dropdown (global) =================
+    const notificationBell = document.getElementById('notificationBell');
+    const notificationDropdown = document.getElementById('notificationDropdown');
+    const clearNotifications = document.getElementById('clearNotifications');
+    const notificationList = document.getElementById('notificationList');
+
+    if (notificationBell && notificationDropdown) {
+        notificationBell.addEventListener('click', function (e) {
+            e.stopPropagation();
+            notificationDropdown.classList.toggle('hidden');
+        });
+
+        // Close on outside click
+        document.addEventListener('click', function (e) {
+            if (!notificationDropdown.contains(e.target) && !notificationBell.contains(e.target)) {
+                notificationDropdown.classList.add('hidden');
+            }
+        });
+
+        // ESC to close
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                notificationDropdown.classList.add('hidden');
+            }
+        });
+
+        // Clear notifications (simple UX demo)
+        if (clearNotifications && notificationList) {
+            clearNotifications.addEventListener('click', function (e) {
+                e.preventDefault();
+                notificationList.innerHTML = '<li class="px-4 py-3"><p class="text-sm text-gray-500">No notifications</p></li>';
+            });
+        }
+    }
+    // =============== End Notifications Dropdown ===============
+
+    // ================= User Menu Dropdown (3-dots) =================
+    const userMenuBtn = document.getElementById('userMenuBtn');
+    const userMenuDropdown = document.getElementById('userMenuDropdown');
+
+    if (userMenuBtn && userMenuDropdown) {
+        userMenuBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            userMenuDropdown.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!userMenuDropdown.contains(e.target) && !userMenuBtn.contains(e.target)) {
+                userMenuDropdown.classList.add('hidden');
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                userMenuDropdown.classList.add('hidden');
+            }
+        });
+    }
+    // =============== End User Menu Dropdown ===============
+
+    // ================= Logout Confirmation =================
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (confirm('Are you sure you want to logout?')) {
+                // Redirect to login page or perform logout
+                window.location.href = '/';
+            }
+        });
+    }
+    // =============== End Logout Confirmation ===============
+ })();

@@ -52,6 +52,10 @@
                     <div class="submenu-nested-content">
                       <a href="{{ route('admin.analytics') }}" class="submenu-nested-link">Project Analytics</a>
                       <a href="{{ route('admin.analytics.subscription') }}" class="submenu-nested-link">Subscription Analytics</a>
+                      <a href="{{ route('admin.analytics.userActivity') }}" class="submenu-nested-link">User Activity Analytics</a>
+                      <a href="{{ route('admin.analytics.projectPerformance') }}" class="submenu-nested-link">Project Performance Analytics</a>
+                      <a href="{{ route('admin.analytics.bidCompletion') }}" class="submenu-nested-link">Bid Completion Analytics</a>
+                      <a href="{{ route('admin.analytics.reports') }}" class="submenu-nested-link">Reports and Analytics</a>
                     </div>
                   </div>
                 </div>
@@ -89,6 +93,7 @@
             <a href="{{ route('admin.globalManagement.bidManagement') }}" class="submenu-link">Bid Management</a>
             <a href="{{ route('admin.globalManagement.proofOfpayments') }}" class="submenu-link">Proof of Payments</a>
             <a href="{{ route('admin.globalManagement.aiManagement') }}" class="submenu-link">AI Management</a>
+            <a href="{{ route('admin.globalManagement.postingManagement') }}" class="submenu-link">Posting Management</a>
           </div>
         </div>
 
@@ -101,9 +106,10 @@
             <span class="arrow">▼</span>
           </button>
           <div class="nav-submenu">
-            <a href="#" class="submenu-link">Disputes/Reports</a>
-            <a href="#" class="submenu-link">Messages</a>
-            <a href="#" class="submenu-link">Subscriptions & Boosts</a>
+            <a href="{{ route('admin.projectManagement.listOfprojects') }}" class="submenu-link">List of Projects</a>
+            <a href="{{ route('admin.projectManagement.disputesReports') }}" class="submenu-link">Disputes/Reports</a>
+            <a href="{{ route('admin.projectManagement.messages') }}" class="submenu-link">Messages</a>
+            <a href="{{ route('admin.projectManagement.subscriptions') }}" class="submenu-link">Subscriptions & Boosts</a>
           </div>
         </div>
 
@@ -116,8 +122,8 @@
             <span class="arrow">▼</span>
           </button>
           <div class="nav-submenu">
-            <a href="#" class="submenu-link">Notifications</a>
-            <a href="#" class="submenu-link">Security</a>
+            <a href="{{ route('admin.settings.notifications') }}" class="submenu-link">Notifications</a>
+            <a href="{{ route('admin.settings.security') }}" class="submenu-link">Security</a>
           </div>
         </div>
       </nav>
@@ -125,13 +131,36 @@
       <div class="mt-auto p-4">
           <div class="user-card flex items-center gap-3 p-3 rounded-lg shadow-md text-white">
               <div class="w-10 h-10 rounded-full bg-white text-indigo-900 flex items-center justify-center font-bold shadow flex-shrink-0">
+
                   ES
               </div>
               <div class="flex-1 min-w-0">
                   <div class="font-semibold text-sm truncate">Emmanuelle Santos</div>
                   <div class="text-xs opacity-80 truncate">santos@Legatura.com</div>
               </div>
-              <button class="text-white opacity-80 hover:opacity-100 transition text-2xl">⋮</button>
+              <div class="relative">
+                <button id="userMenuBtn" class="text-white opacity-80 hover:opacity-100 transition text-2xl w-8 h-8 flex items-center justify-center rounded-full">⋮</button>
+                <div id="userMenuDropdown" class="absolute right-0 bottom-full mb-2 w-44 bg-white text-gray-800 rounded-xl shadow-2xl border border-gray-200 hidden">
+                  <div class="px-4 py-3 border-b border-gray-100">
+                    <div class="text-sm font-semibold truncate">Emmanuelle Santos</div>
+                    <div class="text-xs text-gray-500 truncate">santos@Legatura.com</div>
+                  </div>
+                  <ul class="py-1">
+                    <li>
+                      <a href="{{ route('admin.settings.security') }}" class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50">
+                        <i class="fi fi-br-settings-sliders"></i>
+                        <span>Account settings</span>
+                      </a>
+                    </li>
+                    <li>
+                      <button id="logoutBtn" class="w-full text-left flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 text-red-600">
+                        <i class="fi fi-ss-exit"></i>
+                        <span>Logout</span>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </div>
           </div>
       </div>
 
@@ -152,14 +181,104 @@
           </div>
 
 
-          <div class="relative cursor-pointer">
-          <i class="fi fi-ss-bell-notification-social-media" style="font-size: 20px;"></i>
+          <div class="relative">
+            <button id="notificationBell" class="cursor-pointer w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition">
+              <i class="fi fi-ss-bell-notification-social-media" style="font-size: 20px;"></i>
+            </button>
             <span class="absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+
+            <!-- Notifications Dropdown -->
+            <div id="notificationDropdown" class="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 hidden">
+              <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <span class="text-sm font-semibold text-gray-800">Notifications</span>
+                <button id="clearNotifications" class="text-xs text-indigo-600 hover:text-indigo-700">Clear all</button>
+              </div>
+              <ul class="max-h-80 overflow-y-auto" id="notificationList">
+                <li class="px-4 py-3 hover:bg-gray-50 transition">
+                  <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                      <i class="fi fi-ss-bell"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-gray-800 truncate">New bid submitted on “GreenBelt Building”.</p>
+                      <p class="text-xs text-gray-500">2 mins ago</p>
+                    </div>
+                    <span class="inline-block px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">New</span>
+                  </div>
+                </li>
+                <li class="px-4 py-3 hover:bg-gray-50 transition">
+                  <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
+                      <i class="fi fi-ss-check-circle"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-gray-800 truncate">Verification request approved for Cabonting Architects.</p>
+                      <p class="text-xs text-gray-500">1 hour ago</p>
+                    </div>
+                  </div>
+                </li>
+                <li class="px-4 py-3 hover:bg-gray-50 transition">
+                  <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center">
+                      <i class="fi fi-ss-exclamation"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-gray-800 truncate">High-risk flag: Duplex Housing requires review.</p>
+                      <p class="text-xs text-gray-500">Yesterday</p>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              <div class="px-4 py-3 border-t border-gray-100">
+                <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-indigo-600 hover:text-indigo-700">Notification settings</a>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
       <div class="dashboard-container">
+
+        <!-- Mini Stats Container (floating row) -->
+        <div class="mini-stats-container">
+          <div class="mini-stats-card">
+            <div class="mini-stats-row">
+            <div class="mini-stat-card" data-months='{{ json_encode($projectsMetrics["months"]) }}' data-data='{{ json_encode($projectsMetrics["data"]) }}' data-label="{{ $projectsMetrics['label'] }}" data-total='{{ $projectsMetrics['total'] }}' data-pct='{{ $projectsMetrics['pctChange'] }}'>
+              <div class="mini-stat-left">
+                <canvas class="mini-chart" width="120" height="40"></canvas>
+              </div>
+              <div class="mini-stat-right">
+                <div class="mini-number">{{ $projectsMetrics['total'] }}</div>
+                <div class="mini-label">Total Projects</div>
+              </div>
+              <div class="mini-change">{{ $projectsMetrics['pctChange'] >= 0 ? '+' : '' }}{{ $projectsMetrics['pctChange'] }}%</div>
+            </div>
+
+            <div class="mini-stat-card" data-months='{{ json_encode($activeBidsMetrics["months"]) }}' data-data='{{ json_encode($activeBidsMetrics["data"]) }}' data-label="{{ $activeBidsMetrics['label'] }}" data-total='{{ $activeBidsMetrics['total'] }}' data-pct='{{ $activeBidsMetrics['pctChange'] }}'>
+              <div class="mini-stat-left">
+                <canvas class="mini-chart" width="120" height="40"></canvas>
+              </div>
+              <div class="mini-stat-right">
+                <div class="mini-number">{{ $activeBidsMetrics['total'] }}</div>
+                <div class="mini-label">Active Bids</div>
+              </div>
+              <div class="mini-change">{{ $activeBidsMetrics['pctChange'] >= 0 ? '+' : '' }}{{ $activeBidsMetrics['pctChange'] }}%</div>
+            </div>
+
+            <div class="mini-stat-card" data-months='{{ json_encode($revenueMetrics["months"]) }}' data-data='{{ json_encode($revenueMetrics["data"]) }}' data-label="{{ $revenueMetrics['label'] }}" data-total='{{ number_format($revenueMetrics['total'],2) }}' data-pct='{{ $revenueMetrics['pctChange'] }}'>
+              <div class="mini-stat-left">
+                <canvas class="mini-chart" width="120" height="40"></canvas>
+              </div>
+              <div class="mini-stat-right">
+                <div class="mini-number">₱{{ number_format($revenueMetrics['total'],2) }}</div>
+                <div class="mini-label">Revenue</div>
+              </div>
+              <div class="mini-change">{{ $revenueMetrics['pctChange'] >= 0 ? '+' : '' }}{{ $revenueMetrics['pctChange'] }}%</div>
+            </div>
+            </div>
+          </div>
+        </div>
+        
         <!-- Active Users Section -->
         <div class="dashboard-section active-users-section" style="grid-column: 1 / -1;">
           <h2 class="section-title" style="margin-bottom: 1.5rem;">Active Users</h2>
@@ -244,45 +363,7 @@
           <!-- mini-stats removed from here and moved to a dedicated container below -->
         </div>
 
-        <!-- Mini Stats Container (floating row) -->
-        <div class="mini-stats-container">
-          <div class="mini-stats-card">
-            <div class="mini-stats-row">
-            <div class="mini-stat-card" data-months='{{ json_encode($projectsMetrics["months"]) }}' data-data='{{ json_encode($projectsMetrics["data"]) }}' data-label="{{ $projectsMetrics['label'] }}" data-total='{{ $projectsMetrics['total'] }}' data-pct='{{ $projectsMetrics['pctChange'] }}'>
-              <div class="mini-stat-left">
-                <canvas class="mini-chart" width="120" height="40"></canvas>
-              </div>
-              <div class="mini-stat-right">
-                <div class="mini-number">{{ $projectsMetrics['total'] }}</div>
-                <div class="mini-label">Total Projects</div>
-              </div>
-              <div class="mini-change">{{ $projectsMetrics['pctChange'] >= 0 ? '+' : '' }}{{ $projectsMetrics['pctChange'] }}%</div>
-            </div>
-
-            <div class="mini-stat-card" data-months='{{ json_encode($activeBidsMetrics["months"]) }}' data-data='{{ json_encode($activeBidsMetrics["data"]) }}' data-label="{{ $activeBidsMetrics['label'] }}" data-total='{{ $activeBidsMetrics['total'] }}' data-pct='{{ $activeBidsMetrics['pctChange'] }}'>
-              <div class="mini-stat-left">
-                <canvas class="mini-chart" width="120" height="40"></canvas>
-              </div>
-              <div class="mini-stat-right">
-                <div class="mini-number">{{ $activeBidsMetrics['total'] }}</div>
-                <div class="mini-label">Active Bids</div>
-              </div>
-              <div class="mini-change">{{ $activeBidsMetrics['pctChange'] >= 0 ? '+' : '' }}{{ $activeBidsMetrics['pctChange'] }}%</div>
-            </div>
-
-            <div class="mini-stat-card" data-months='{{ json_encode($revenueMetrics["months"]) }}' data-data='{{ json_encode($revenueMetrics["data"]) }}' data-label="{{ $revenueMetrics['label'] }}" data-total='{{ number_format($revenueMetrics['total'],2) }}' data-pct='{{ $revenueMetrics['pctChange'] }}'>
-              <div class="mini-stat-left">
-                <canvas class="mini-chart" width="120" height="40"></canvas>
-              </div>
-              <div class="mini-stat-right">
-                <div class="mini-number">₱{{ number_format($revenueMetrics['total'],2) }}</div>
-                <div class="mini-label">Revenue</div>
-              </div>
-              <div class="mini-change">{{ $revenueMetrics['pctChange'] >= 0 ? '+' : '' }}{{ $revenueMetrics['pctChange'] }}%</div>
-            </div>
-            </div>
-          </div>
-        </div>
+        
 
         <!-- Top Contractors Section -->
 

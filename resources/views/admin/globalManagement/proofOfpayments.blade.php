@@ -50,8 +50,12 @@
                       <span class="arrow-small">▼</span>
                     </button>
                     <div class="submenu-nested-content">
-                      <a href="{{ route('admin.analytics') }}" class="submenu-nested-link active">Project Analytics</a>
+                      <a href="{{ route('admin.analytics') }}" class="submenu-nested-link">Project Analytics</a>
                       <a href="{{ route('admin.analytics.subscription') }}" class="submenu-nested-link">Subscription Analytics</a>
+                      <a href="{{ route('admin.analytics.userActivity') }}" class="submenu-nested-link">User Activity Analytics</a>
+                      <a href="{{ route('admin.analytics.projectPerformance') }}" class="submenu-nested-link">Project Performance Analytics</a>
+                      <a href="{{ route('admin.analytics.bidCompletion') }}" class="submenu-nested-link">Bid Completion Analytics</a>
+                      <a href="{{ route('admin.analytics.reports') }}" class="submenu-nested-link">Reports and Analytics</a>
                     </div>
                   </div>
                 </div>
@@ -89,6 +93,7 @@
             <a href="{{ route('admin.globalManagement.bidManagement') }}" class="submenu-link">Bid Management</a>
             <a href="{{ route('admin.globalManagement.proofOfpayments') }}" class="submenu-link active">Proof of Payments</a>
             <a href="{{ route('admin.globalManagement.aiManagement') }}" class="submenu-link">AI Management</a>
+            <a href="{{ route('admin.globalManagement.postingManagement') }}" class="submenu-link">Posting Management</a>
           </div>
         </div>
 
@@ -101,9 +106,10 @@
             <span class="arrow">▼</span>
           </button>
           <div class="nav-submenu">
-            <a href="#" class="submenu-link">Disputes/Reports</a>
-            <a href="#" class="submenu-link">Messages</a>
-            <a href="#" class="submenu-link">Subscriptions & Boosts</a>
+            <a href="{{ route('admin.projectManagement.listOfprojects') }}" class="submenu-link">List of Projects</a>
+            <a href="{{ route('admin.projectManagement.disputesReports') }}" class="submenu-link">Disputes/Reports</a>
+            <a href="{{ route('admin.projectManagement.messages') }}" class="submenu-link">Messages</a>
+            <a href="{{ route('admin.projectManagement.subscriptions') }}" class="submenu-link">Subscriptions & Boosts</a>
           </div>
         </div>
 
@@ -116,22 +122,44 @@
             <span class="arrow">▼</span>
           </button>
           <div class="nav-submenu">
-            <a href="#" class="submenu-link">Notifications</a>
-            <a href="#" class="submenu-link">Security</a>
+            <a href="{{ route('admin.settings.notifications') }}" class="submenu-link">Notifications</a>
+            <a href="{{ route('admin.settings.security') }}" class="submenu-link">Security</a>
           </div>
         </div>
       </nav>
 
       <div class="mt-auto p-4">
           <div class="user-card flex items-center gap-3 p-3 rounded-lg shadow-md text-white">
-              <div class="w-10 h-10 rounded-full bg-white text-indigo-900 flex items-center justify-center font-bold shadow flex-shrink-0">
+             <div class="w-10 h-10 rounded-full bg-white text-indigo-900 flex items-center justify-center font-bold shadow flex-shrink-0">
                   ES
               </div>
               <div class="flex-1 min-w-0">
                   <div class="font-semibold text-sm truncate">Emmanuelle Santos</div>
                   <div class="text-xs opacity-80 truncate">santos@Legatura.com</div>
               </div>
-              <button class="text-white opacity-80 hover:opacity-100 transition text-2xl">⋮</button>
+              <div class="relative">
+                <button id="userMenuBtn" class="text-white opacity-80 hover:opacity-100 transition text-2xl w-8 h-8 flex items-center justify-center rounded-full">⋮</button>
+                <div id="userMenuDropdown" class="absolute right-0 bottom-full mb-2 w-44 bg-white text-gray-800 rounded-xl shadow-2xl border border-gray-200 hidden">
+                  <div class="px-4 py-3 border-b border-gray-100">
+                    <div class="text-sm font-semibold truncate">Emmanuelle Santos</div>
+                    <div class="text-xs text-gray-500 truncate">santos@Legatura.com</div>
+                  </div>
+                  <ul class="py-1">
+                    <li>
+                      <a href="{{ route('admin.settings.security') }}" class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50">
+                        <i class="fi fi-br-settings-sliders"></i>
+                        <span>Account settings</span>
+                      </a>
+                    </li>
+                    <li>
+                      <button id="logoutBtn" class="w-full text-left flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 text-red-600">
+                        <i class="fi fi-ss-exit"></i>
+                        <span>Logout</span>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </div>
           </div>
       </div>
 
@@ -152,9 +180,58 @@
           </div>
 
 
-          <div class="relative cursor-pointer">
-          <i class="fi fi-ss-bell-notification-social-media" style="font-size: 20px;"></i>
+          <div class="relative">
+            <button id="notificationBell" class="cursor-pointer w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition">
+              <i class="fi fi-ss-bell-notification-social-media" style="font-size: 20px;"></i>
+            </button>
             <span class="absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+
+            <!-- Notifications Dropdown -->
+            <div id="notificationDropdown" class="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 hidden">
+              <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <span class="text-sm font-semibold text-gray-800">Notifications</span>
+                <button id="clearNotifications" class="text-xs text-indigo-600 hover:text-indigo-700">Clear all</button>
+              </div>
+              <ul class="max-h-80 overflow-y-auto" id="notificationList">
+                <li class="px-4 py-3 hover:bg-gray-50 transition">
+                  <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                      <i class="fi fi-ss-bell"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-gray-800 truncate">New bid submitted on “GreenBelt Building”.</p>
+                      <p class="text-xs text-gray-500">2 mins ago</p>
+                    </div>
+                    <span class="inline-block px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">New</span>
+                  </div>
+                </li>
+                <li class="px-4 py-3 hover:bg-gray-50 transition">
+                  <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
+                      <i class="fi fi-ss-check-circle"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-gray-800 truncate">Verification request approved for Cabonting Architects.</p>
+                      <p class="text-xs text-gray-500">1 hour ago</p>
+                    </div>
+                  </div>
+                </li>
+                <li class="px-4 py-3 hover:bg-gray-50 transition">
+                  <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center">
+                      <i class="fi fi-ss-exclamation"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-gray-800 truncate">High-risk flag: Duplex Housing requires review.</p>
+                      <p class="text-xs text-gray-500">Yesterday</p>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              <div class="px-4 py-3 border-t border-gray-100">
+                <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-indigo-600 hover:text-indigo-700">Notification settings</a>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -426,20 +503,25 @@
     <!-- Pending Proof of Payment Modal -->
     <div id="pendingPaymentModal" class="fixed inset-0 z-[100] hidden items-center justify-center">
       <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"></div>
-      <div class="relative bg-white w-full max-w-4xl mx-4 rounded-2xl shadow-2xl border border-gray-200 overflow-hidden modal-enter">
-        <div class="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-50 to-blue-50 border-b">
-          <div class="flex items-center gap-2">
-            <h3 class="text-lg font-semibold text-gray-800">Proof of Payment Details</h3>
-            <i class="fi fi-ss-bolt text-amber-500"></i>
+      <div class="relative bg-white w-full max-w-5xl mx-4 rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+        <div class="flex items-center justify-between px-7 py-5 bg-gradient-to-r from-indigo-50 via-blue-50 to-cyan-50 border-b">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow">
+              <i class="fi fi-ss-bolt text-white text-lg"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-gray-800">Proof of Payment (Pending)</h3>
+              <p class="text-xs text-gray-500">Awaiting verification</p>
+            </div>
           </div>
-          <button data-close-modal class="p-2 rounded-full hover:bg-gray-100 text-gray-500"><i class="fi fi-rr-cross-small text-xl"></i></button>
+          <button data-close-modal class="p-2 rounded-xl hover:bg-white/80 text-gray-500 hover:text-gray-700 transition"><i class="fi fi-rr-cross-small text-xl"></i></button>
         </div>
 
-        <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+        <div class="p-7 space-y-6 max-h-[72vh] overflow-y-auto">
           <!-- Status Badge -->
           <div class="flex items-center gap-3">
-            <span id="pp-status" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending</span>
-            <span class="text-xs text-gray-400">Awaiting verification</span>
+            <span id="pp-status" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">Pending</span>
+            <span class="text-xs text-gray-500">Submitted and under review</span>
           </div>
 
           <!-- Details Grid -->
@@ -500,10 +582,10 @@
           </div>
 
           <!-- Uploaded Files -->
-          <div class="pt-4">
+          <div class="pt-2">
             <div class="flex items-center justify-between">
               <h4 class="font-semibold text-gray-800">Uploaded Files</h4>
-              <span class="text-xs text-gray-400">Preview or download</span>
+              <span class="text-xs text-gray-500">Preview or download</span>
             </div>
             <div class="mt-3 border-t"></div>
 
@@ -520,7 +602,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                   <button class="icon-btn" title="Preview"><i class="fi fi-rr-eye"></i></button>
-                  <button class="icon-btn" title="Download"><i class="fi fi-rr-download"></i></button>
+                  <button class="icon-btn pending-download" title="Download"><i class="fi fi-rr-download"></i></button>
                 </div>
               </div>
 
@@ -536,7 +618,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                   <button class="icon-btn" title="Preview"><i class="fi fi-rr-eye"></i></button>
-                  <button class="icon-btn" title="Download"><i class="fi fi-rr-download"></i></button>
+                  <button class="icon-btn pending-download" title="Download"><i class="fi fi-rr-download"></i></button>
                 </div>
               </div>
 
@@ -562,7 +644,7 @@
         <!-- Footer Actions -->
         <div class="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t">
           <button id="pp-reject" class="px-4 py-2 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 hover:border-red-300 transition">Reject</button>
-          <button id="pp-approve" class="px-4 py-2 rounded-lg bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 hover:border-green-300 transition">Approved</button>
+          <button id="pp-approve" class="px-4 py-2 rounded-lg bg-green-50 text-green-600 border border-green-200 hover:bg-green-100 hover:border-green-300 transition">Approve</button>
         </div>
       </div>
     </div>
@@ -605,43 +687,46 @@
 
     <!-- Completed Proof of Payment Modal -->
     <div id="completedPaymentModal" class="fixed inset-0 z-[100] hidden items-center justify-center">
-      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"></div>
-      <div class="relative bg-white w-full max-w-4xl mx-4 rounded-2xl shadow-2xl border border-gray-200 overflow-hidden modal-enter">
-        <div class="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-emerald-50 to-green-50 border-b">
-          <h3 class="text-lg font-semibold text-gray-800">Proof of Payment Details</h3>
-          <button data-close-modal class="p-2 rounded-full hover:bg-gray-100 text-gray-500"><i class="fi fi-rr-cross-small text-xl"></i></button>
+      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity completed-backdrop"></div>
+      <div class="relative bg-white w-full max-w-6xl mx-4 rounded-2xl shadow-2xl border border-gray-200 overflow-hidden h-[92vh] flex flex-col completed-modal-panel">
+        <div class="flex items-center justify-between px-8 py-5 bg-gradient-to-r from-emerald-50 via-green-50 to-teal-50 border-b">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow completed-icon-badge">
+              <i class="fi fi-sr-check-circle text-white text-xl"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-gray-800">Proof of Payment (Completed)</h3>
+              <p class="text-xs text-gray-500">Transaction has been verified</p>
+            </div>
+          </div>
+          <button data-close-modal class="p-2 rounded-xl hover:bg-white/80 text-gray-500 hover:text-gray-700 transition completed-close-btn"><i class="fi fi-rr-cross-small text-xl"></i></button>
         </div>
 
-        <div class="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div class="flex-1 overflow-y-auto p-8 space-y-6 completed-scrollbar">
           <!-- Status and Remarks -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-2">
-              <span id="cp-status" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Approved</span>
-            </div>
-            <div class="space-y-2">
-              <label class="block text-sm text-gray-600">Remarks:</label>
-              <textarea id="cp-remarks" rows="2" class="w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400" placeholder="Write a compelling message to the client. Tell them about your expertise and why you're a great fit."></textarea>
+          <!-- Success Banner -->
+          <div class="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-5">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Approved</span>
+              <span class="text-xs text-gray-500">Verified and recorded</span>
             </div>
           </div>
 
-          <!-- Details -->
-          <div class="section-title">Details</div>
+          <!-- Info Grid -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- Left -->
             <div class="space-y-3 text-sm">
-              <div class="dl-row"><span class="dl-label">Payment ID</span><span id="cp-payment-id" class="dl-value font-semibold text-gray-800">#—</span></div>
-              <div class="dl-row"><span class="dl-label">Contractor</span><span id="cp-contractor" class="dl-value font-semibold text-gray-800 text-right truncate max-w-[240px]">—</span></div>
-              <div class="dl-row"><span class="dl-label">Milestone Paid</span><span id="cp-milestone" class="dl-value text-gray-800">Milestone 3 • Rooftop Building</span></div>
-              <div class="dl-row"><span class="dl-label">Payment Reference No.</span><span id="cp-reference" class="dl-value text-gray-800">PAY_XXXX_cash</span></div>
-              <div class="dl-row"><span class="dl-label">Payment Date</span><span id="cp-date" class="dl-value text-gray-800">—</span></div>
-              <div class="dl-row"><span class="dl-label">Payment Method</span><span id="cp-method" class="dl-value text-gray-800">—</span></div>
-              <div class="dl-row"><span class="dl-label">Amount Paid</span><span id="cp-amount" class="dl-value text-gray-800 font-semibold">—</span></div>
-              <div class="dl-row"><span class="dl-label">Date Verified</span><span id="cp-verified" class="dl-value text-gray-800">—</span></div>
+              <div class="flex items-start justify-between gap-6"><span class="text-gray-500">Payment ID</span><span id="cp-payment-id" class="font-semibold text-gray-800">#—</span></div>
+              <div class="flex items-start justify-between gap-6"><span class="text-gray-500">Contractor</span><span id="cp-contractor" class="font-semibold text-gray-800 text-right truncate max-w-[240px]">—</span></div>
+              <div class="flex items-start justify-between gap-6"><span class="text-gray-500">Milestone Paid</span><span id="cp-milestone" class="text-gray-800">Milestone 3 • Rooftop Building</span></div>
+              <div class="flex items-start justify-between gap-6"><span class="text-gray-500">Payment Reference No.</span><span id="cp-reference" class="text-gray-800">PAY_XXXX_cash</span></div>
+              <div class="flex items-start justify-between gap-6"><span class="text-gray-500">Payment Date</span><span id="cp-date" class="text-gray-800">—</span></div>
+              <div class="flex items-start justify-between gap-6"><span class="text-gray-500">Payment Method</span><span id="cp-method" class="text-gray-800">—</span></div>
+              <div class="flex items-start justify-between gap-6"><span class="text-gray-500">Amount Paid</span><span id="cp-amount" class="text-gray-800 font-semibold">—</span></div>
+              <div class="flex items-start justify-between gap-6"><span class="text-gray-500">Date Verified</span><span id="cp-verified" class="text-gray-800">—</span></div>
             </div>
-            <!-- Right -->
             <div class="space-y-3 text-sm">
-              <div class="dl-row"><span class="dl-label">Property Owner</span><span id="cp-owner" class="dl-value text-gray-800">—</span></div>
-              <div class="dl-row"><span class="dl-label">Project Title</span><span id="cp-project" class="dl-value text-gray-800 text-right truncate max-w-[260px]">—</span></div>
+              <div class="flex items-start justify-between gap-6"><span class="text-gray-500">Property Owner</span><span id="cp-owner" class="text-gray-800">—</span></div>
+              <div class="flex items-start justify-between gap-6"><span class="text-gray-500">Project Title</span><span id="cp-project" class="text-gray-800 text-right truncate max-w-[260px]">—</span></div>
               <div class="flex flex-col gap-2">
                 <span class="text-gray-500">Description</span>
                 <p id="cp-description" class="text-gray-700 leading-relaxed text-justify">Construction of a 2-story commercial complex with parking space, electrical systems, and interior finishing.</p>
@@ -649,7 +734,7 @@
             </div>
           </div>
 
-          <!-- Uploaded Files Table-like -->
+          <!-- Files -->
           <div>
             <h4 class="font-semibold text-gray-800 mb-3">Uploaded Files</h4>
             <div class="rounded-xl border border-gray-200 overflow-hidden">
@@ -663,7 +748,7 @@
               <div class="divide-y" id="cp-files">
                 <div class="grid grid-cols-12 items-center px-4 py-3 hover:bg-gray-50">
                   <div class="col-span-6 flex items-center gap-3">
-                    <input type="checkbox" class="rounded border-gray-300">
+                    <input type="checkbox" class="rounded border-gray-300 completed-checkbox">
                     <span class="file-type">PDF</span>
                     <span class="text-gray-800">Progress Report</span>
                   </div>
@@ -671,12 +756,12 @@
                   <div class="col-span-2 text-sm text-gray-600">Carl Saludo</div>
                   <div class="col-span-1 text-sm text-gray-600">Architect</div>
                   <div class="col-span-1 flex justify-end">
-                    <button class="icon-btn" title="Download"><i class="fi fi-rr-download"></i></button>
+                    <button class="icon-btn completed-download-btn" title="Download"><i class="fi fi-rr-download"></i></button>
                   </div>
                 </div>
                 <div class="grid grid-cols-12 items-center px-4 py-3 hover:bg-gray-50">
                   <div class="col-span-6 flex items-center gap-3">
-                    <input type="checkbox" class="rounded border-gray-300">
+                    <input type="checkbox" class="rounded border-gray-300 completed-checkbox">
                     <span class="file-type">PDF</span>
                     <span class="text-gray-800">Official Receipt</span>
                   </div>
@@ -684,7 +769,7 @@
                   <div class="col-span-2 text-sm text-gray-600">Carl Saludo</div>
                   <div class="col-span-1 text-sm text-gray-600">Architect</div>
                   <div class="col-span-1 flex justify-end">
-                    <button class="icon-btn" title="Download"><i class="fi fi-rr-download"></i></button>
+                    <button class="icon-btn completed-download-btn" title="Download"><i class="fi fi-rr-download"></i></button>
                   </div>
                 </div>
               </div>
@@ -807,17 +892,25 @@
     <!-- Invalid Proof of Payment Modal -->
     <div id="invalidPaymentModal" class="fixed inset-0 z-[100] hidden items-center justify-center">
       <div class="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"></div>
-      <div class="relative bg-white w-full max-w-4xl mx-4 rounded-2xl shadow-2xl border border-gray-200 overflow-hidden modal-enter">
-        <div class="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-rose-50 to-red-50 border-b">
-          <h3 class="text-lg font-semibold text-gray-800">Proof of Payment Details</h3>
-          <button data-close-modal class="p-2 rounded-full hover:bg-gray-100 text-gray-500"><i class="fi fi-rr-cross-small text-xl"></i></button>
+      <div class="relative bg-white w-full max-w-5xl mx-4 rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+        <div class="flex items-center justify-between px-7 py-5 bg-gradient-to-r from-rose-50 via-red-50 to-orange-50 border-b">
+          <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center shadow">
+              <i class="fi fi-sr-triangle-warning text-white text-lg"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-gray-800">Proof of Payment (Invalid)</h3>
+              <p class="text-xs text-gray-500">Receipt flagged as invalid</p>
+            </div>
+          </div>
+          <button data-close-modal class="p-2 rounded-xl hover:bg-white/80 text-gray-500 hover:text-gray-700 transition"><i class="fi fi-rr-cross-small text-xl"></i></button>
         </div>
 
-        <div class="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div class="p-7 space-y-6 max-h-[72vh] overflow-y-auto">
           <!-- Status and Remarks -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-2">
-              <span id="ip-status" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 border border-rose-200">Invalid Receipt</span>
+              <span id="ip-status" class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 border border-rose-200">Invalid Receipt</span>
             </div>
             <div class="space-y-2">
               <label class="block text-sm text-gray-600">Remarks:</label>
@@ -863,7 +956,7 @@
               <div class="divide-y" id="ip-files">
                 <div class="grid grid-cols-12 items-center px-4 py-3 hover:bg-gray-50">
                   <div class="col-span-6 flex items-center gap-3">
-                    <input type="checkbox" class="form-checkbox rounded border-gray-300">
+                    <input type="checkbox" class="form-checkbox rounded border-gray-300 invalid-checkbox">
                     <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 text-xs font-bold">PDF</div>
                     <div>
                       <div class="text-sm font-medium text-gray-800">Progress Report</div>
@@ -874,12 +967,12 @@
                   <div class="col-span-2 text-xs text-gray-600">Carl Saludo</div>
                   <div class="col-span-1 text-xs text-gray-600">Architect</div>
                   <div class="col-span-1 flex justify-end">
-                    <button class="icon-btn" title="Download"><i class="fi fi-rr-download"></i></button>
+                    <button class="icon-btn invalid-download" title="Download"><i class="fi fi-rr-download"></i></button>
                   </div>
                 </div>
                 <div class="grid grid-cols-12 items-center px-4 py-3 hover:bg-gray-50">
                   <div class="col-span-6 flex items-center gap-3">
-                    <input type="checkbox" class="form-checkbox rounded border-gray-300">
+                    <input type="checkbox" class="form-checkbox rounded border-gray-300 invalid-checkbox">
                     <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 text-xs font-bold">PDF</div>
                     <div>
                       <div class="text-sm font-medium text-gray-800">Progress Report</div>
@@ -890,7 +983,7 @@
                   <div class="col-span-2 text-xs text-gray-600">Carl Saludo</div>
                   <div class="col-span-1 text-xs text-gray-600">Architect</div>
                   <div class="col-span-1 flex justify-end">
-                    <button class="icon-btn" title="Download"><i class="fi fi-rr-download"></i></button>
+                    <button class="icon-btn invalid-download" title="Download"><i class="fi fi-rr-download"></i></button>
                   </div>
                 </div>
               </div>

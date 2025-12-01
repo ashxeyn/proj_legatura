@@ -50,8 +50,12 @@
                       <span class="arrow-small">▼</span>
                     </button>
                     <div class="submenu-nested-content">
-                      <a href="{{ route('admin.analytics') }}" class="submenu-nested-link active">Project Analytics</a>
+                      <a href="{{ route('admin.analytics') }}" class="submenu-nested-link">Project Analytics</a>
                       <a href="{{ route('admin.analytics.subscription') }}" class="submenu-nested-link">Subscription Analytics</a>
+                      <a href="{{ route('admin.analytics.userActivity') }}" class="submenu-nested-link">User Activity Analytics</a>
+                      <a href="{{ route('admin.analytics.projectPerformance') }}" class="submenu-nested-link">Project Performance Analytics</a>
+                      <a href="{{ route('admin.analytics.bidCompletion') }}" class="submenu-nested-link">Bid Completion Analytics</a>
+                      <a href="{{ route('admin.analytics.reports') }}" class="submenu-nested-link">Reports and Analytics</a>
                     </div>
                   </div>
                 </div>
@@ -89,6 +93,7 @@
             <a href="{{ route('admin.globalManagement.bidManagement') }}" class="submenu-link active">Bid Management</a>
             <a href="{{ route('admin.globalManagement.proofOfpayments') }}" class="submenu-link">Proof of Payments</a>
             <a href="{{ route('admin.globalManagement.aiManagement') }}" class="submenu-link">AI Management</a>
+            <a href="{{ route('admin.globalManagement.postingManagement') }}" class="submenu-link">Posting Management</a>
           </div>
         </div>
 
@@ -101,9 +106,10 @@
             <span class="arrow">▼</span>
           </button>
           <div class="nav-submenu">
-            <a href="#" class="submenu-link">Disputes/Reports</a>
-            <a href="#" class="submenu-link">Messages</a>
-            <a href="#" class="submenu-link">Subscriptions & Boosts</a>
+            <a href="{{ route('admin.projectManagement.listOfprojects') }}" class="submenu-link">List of Projects</a>
+            <a href="{{ route('admin.projectManagement.disputesReports') }}" class="submenu-link">Disputes/Reports</a>
+            <a href="{{ route('admin.projectManagement.messages') }}" class="submenu-link">Messages</a>
+            <a href="{{ route('admin.projectManagement.subscriptions') }}" class="submenu-link">Subscriptions & Boosts</a>
           </div>
         </div>
 
@@ -116,8 +122,8 @@
             <span class="arrow">▼</span>
           </button>
           <div class="nav-submenu">
-            <a href="#" class="submenu-link">Notifications</a>
-            <a href="#" class="submenu-link">Security</a>
+            <a href="{{ route('admin.settings.notifications') }}" class="submenu-link">Notifications</a>
+            <a href="{{ route('admin.settings.security') }}" class="submenu-link">Security</a>
           </div>
         </div>
       </nav>
@@ -131,7 +137,29 @@
                   <div class="font-semibold text-sm truncate">Emmanuelle Santos</div>
                   <div class="text-xs opacity-80 truncate">santos@Legatura.com</div>
               </div>
-              <button class="text-white opacity-80 hover:opacity-100 transition text-2xl">⋮</button>
+              <div class="relative">
+                <button id="userMenuBtn" class="text-white opacity-80 hover:opacity-100 transition text-2xl w-8 h-8 flex items-center justify-center rounded-full">⋮</button>
+                <div id="userMenuDropdown" class="absolute right-0 bottom-full mb-2 w-44 bg-white text-gray-800 rounded-xl shadow-2xl border border-gray-200 hidden">
+                  <div class="px-4 py-3 border-b border-gray-100">
+                    <div class="text-sm font-semibold truncate">Emmanuelle Santos</div>
+                    <div class="text-xs text-gray-500 truncate">santos@Legatura.com</div>
+                  </div>
+                  <ul class="py-1">
+                    <li>
+                      <a href="{{ route('admin.settings.security') }}" class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50">
+                        <i class="fi fi-br-settings-sliders"></i>
+                        <span>Account settings</span>
+                      </a>
+                    </li>
+                    <li>
+                      <button id="logoutBtn" class="w-full text-left flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 text-red-600">
+                        <i class="fi fi-ss-exit"></i>
+                        <span>Logout</span>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </div>
           </div>
       </div>
 
@@ -152,9 +180,58 @@
           </div>
 
 
-          <div class="relative cursor-pointer">
-          <i class="fi fi-ss-bell-notification-social-media" style="font-size: 20px;"></i>
+          <div class="relative">
+            <button id="notificationBell" class="cursor-pointer w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition">
+              <i class="fi fi-ss-bell-notification-social-media" style="font-size: 20px;"></i>
+            </button>
             <span class="absolute -top-1 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+
+            <!-- Notifications Dropdown -->
+            <div id="notificationDropdown" class="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 hidden">
+              <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <span class="text-sm font-semibold text-gray-800">Notifications</span>
+                <button id="clearNotifications" class="text-xs text-indigo-600 hover:text-indigo-700">Clear all</button>
+              </div>
+              <ul class="max-h-80 overflow-y-auto" id="notificationList">
+                <li class="px-4 py-3 hover:bg-gray-50 transition">
+                  <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                      <i class="fi fi-ss-bell"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-gray-800 truncate">New bid submitted on “GreenBelt Building”.</p>
+                      <p class="text-xs text-gray-500">2 mins ago</p>
+                    </div>
+                    <span class="inline-block px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">New</span>
+                  </div>
+                </li>
+                <li class="px-4 py-3 hover:bg-gray-50 transition">
+                  <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
+                      <i class="fi fi-ss-check-circle"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-gray-800 truncate">Verification request approved for Cabonting Architects.</p>
+                      <p class="text-xs text-gray-500">1 hour ago</p>
+                    </div>
+                  </div>
+                </li>
+                <li class="px-4 py-3 hover:bg-gray-50 transition">
+                  <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center">
+                      <i class="fi fi-ss-exclamation"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-gray-800 truncate">High-risk flag: Duplex Housing requires review.</p>
+                      <p class="text-xs text-gray-500">Yesterday</p>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+              <div class="px-4 py-3 border-t border-gray-100">
+                <a href="{{ route('admin.settings.notifications') }}" class="text-sm text-indigo-600 hover:text-indigo-700">Notification settings</a>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -616,68 +693,163 @@
     </main>
   
   <!-- View Bid Modal (Under Evaluation) -->
-  <div id="viewBidModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] overflow-hidden modal-panel transform transition-all flex flex-col">
+  <div id="viewBidModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 view-modal-overlay">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[92vh] overflow-hidden modal-panel transform transition-all flex flex-col scale-95 opacity-0">
       <!-- Modal Header -->
-      <div class="flex items-start justify-between px-6 sm:px-8 py-5 border-b border-gray-200 bg-white sticky top-0 z-10">
-        <div>
-          <h2 class="text-xl sm:text-2xl font-bold text-gray-800">Bid Status</h2>
-          <div class="mt-2">
-            <span id="modalStatusBadge" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
-              <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-              Under Evaluation
-            </span>
+      <div class="flex items-start justify-between px-6 sm:px-8 py-6 border-b-2 border-amber-100 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 sticky top-0 z-10 shadow-sm">
+        <div class="flex items-center gap-4">
+          <div class="flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg view-icon-badge">
+            <i class="fi fi-sr-hourglass-end text-white text-2xl"></i>
+          </div>
+          <div>
+            <h2 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">Bid Under Evaluation</h2>
+            <p class="text-sm text-gray-600 mt-1 flex items-center gap-2">
+              <i class="fi fi-rr-search-alt text-amber-500 text-xs"></i>
+              <span>Review and assess bid submission</span>
+            </p>
           </div>
         </div>
-        <button id="closeViewBidModal" class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition">
+        <button id="closeViewBidModal" class="text-gray-400 hover:text-gray-600 p-2.5 rounded-xl hover:bg-white hover:shadow-md transition-all view-close-btn">
           <i class="fi fi-rr-cross text-xl"></i>
         </button>
       </div>
 
       <!-- Modal Body -->
-      <div class="px-6 sm:px-8 py-6 overflow-y-auto view-modal-content flex-1">
+      <div class="px-6 sm:px-8 py-6 overflow-y-auto view-modal-content flex-1 space-y-6">
+        <!-- Status Banner -->
+        <div class="view-status-banner rounded-xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="flex items-center justify-center w-12 h-12 rounded-full bg-amber-500 shadow-md animate-pulse-slow">
+                <i class="fi fi-sr-clock text-white text-xl"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-xs font-bold text-amber-700 uppercase tracking-wide">Current Status</span>
+                  <div class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                </div>
+                <h3 class="text-lg font-bold text-gray-800">Under Evaluation</h3>
+                <p class="text-sm text-gray-600 mt-1">Bid is currently being reviewed by the evaluation team</p>
+              </div>
+            </div>
+            <button class="view-expand-btn px-4 py-2 bg-white border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-50 transition-all text-sm font-medium shadow-sm hover:shadow">
+              <i class="fi fi-rr-angle-small-down"></i>
+            </button>
+          </div>
+          <div class="view-expand-content hidden mt-4 pt-4 border-t border-amber-200">
+            <div class="grid grid-cols-3 gap-4">
+              <div class="bg-white/60 backdrop-blur-sm rounded-lg p-3 border border-amber-100">
+                <div class="text-xs text-gray-600 mb-1">Submitted On</div>
+                <div class="font-semibold text-gray-800">Nov 15, 2025</div>
+              </div>
+              <div class="bg-white/60 backdrop-blur-sm rounded-lg p-3 border border-amber-100">
+                <div class="text-xs text-gray-600 mb-1">Days in Review</div>
+                <div class="font-semibold text-gray-800">3 Days</div>
+              </div>
+              <div class="bg-white/60 backdrop-blur-sm rounded-lg p-3 border border-amber-100">
+                <div class="text-xs text-gray-600 mb-1">Expected Response</div>
+                <div class="font-semibold text-gray-800">2-5 Days</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Top Info Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <!-- Bidder Information -->
-          <div class="rounded-xl border border-gray-200 p-5">
-            <h3 class="font-semibold text-gray-800 mb-4">Bidder Information</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-700">
-              <div><span class="text-gray-500">Company Name :</span> <span id="bidderCompany" class="font-medium">-</span></div>
-              <div><span class="text-gray-500">Email Address :</span> <span id="bidderEmail" class="font-medium">-</span></div>
-              <div><span class="text-gray-500">PCAB No :</span> <span class="font-medium">12345-AB-2025</span></div>
-              <div><span class="text-gray-500">PCAB Category :</span> <span class="font-medium">Category B</span></div>
-              <div><span class="text-gray-500">PCAB Expiration Date:</span> <span class="font-medium">August 15, 2026</span></div>
-              <div><span class="text-gray-500">Business Permit No. :</span> <span class="font-medium">BP-2025-0987</span></div>
-              <div><span class="text-gray-500">Permit City :</span> <span class="font-medium">Zamboanga City</span></div>
-              <div><span class="text-gray-500">Business Permit Expiration:</span> <span class="font-medium">December 31, 2025</span></div>
-              <div><span class="text-gray-500">TIN Registration number :</span> <span class="font-medium">123-456-789-000</span></div>
+          <div class="view-info-card rounded-xl border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 to-blue-50 p-6 shadow-sm hover:shadow-lg transition-all">
+            <div class="flex items-center gap-3 mb-5">
+              <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-500 shadow-md">
+                <i class="fi fi-rr-user text-white text-lg"></i>
+              </div>
+              <h3 class="text-lg font-bold text-gray-800">Bidder Information</h3>
+            </div>
+            <div class="space-y-3 bg-white/60 backdrop-blur-sm rounded-lg p-4 border border-indigo-100">
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Company Name</span>
+                <span id="bidderCompany" class="font-semibold text-gray-800 text-right">-</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Email Address</span>
+                <span id="bidderEmail" class="font-semibold text-gray-800 text-right">-</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">PCAB No</span>
+                <span class="font-semibold text-gray-800">12345-AB-2025</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">PCAB Category</span>
+                <span class="font-semibold text-gray-800">Category B</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">PCAB Expiration</span>
+                <span class="font-semibold text-gray-800">Aug 15, 2026</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Business Permit No</span>
+                <span class="font-semibold text-gray-800">BP-2025-0987</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Permit City</span>
+                <span class="font-semibold text-gray-800">Zamboanga City</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Permit Expiration</span>
+                <span class="font-semibold text-gray-800">Dec 31, 2025</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">TIN Registration</span>
+                <span class="font-semibold text-gray-800">123-456-789-000</span>
+              </div>
             </div>
           </div>
 
           <!-- Project Information -->
-          <div class="rounded-xl border border-gray-200 p-5">
-            <h3 class="font-semibold text-gray-800 mb-4">Project Information</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-700">
-              <div><span class="text-gray-500">Project Title :</span> <span id="projectTitle" class="font-medium">-</span></div>
-              <div><span class="text-gray-500">Property Address :</span> <span class="font-medium">Tetuan Zamboanga City 7000</span></div>
-              <div><span class="text-gray-500">Property Type :</span> <span class="font-medium">Residential</span></div>
-              <div><span class="text-gray-500">Lot Size (sqm) :</span> <span class="font-medium">3000</span></div>
-              <div><span class="text-gray-500">Target Timeline :</span> <span class="font-medium">3000</span></div>
-              <div><span class="text-gray-500">Budget :</span> <span class="font-medium">PHP 1,000,000</span></div>
-              <div><span class="text-gray-500">Bidding Deadline :</span> <span class="font-medium">November 20, 2025</span></div>
-              <div class="sm:col-span-2 grid grid-cols-2 gap-3 mt-2">
-                <div>
-                  <div class="text-gray-600 text-sm mb-1">Uploaded Photos</div>
-                  <a href="#" class="text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-2 text-sm">
+          <div class="view-info-card rounded-xl border-2 border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50 p-6 shadow-sm hover:shadow-lg transition-all">
+            <div class="flex items-center gap-3 mb-5">
+              <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-500 shadow-md">
+                <i class="fi fi-rr-building text-white text-lg"></i>
+              </div>
+              <h3 class="text-lg font-bold text-gray-800">Project Information</h3>
+            </div>
+            <div class="space-y-3 bg-white/60 backdrop-blur-sm rounded-lg p-4 border border-purple-100">
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Project Title</span>
+                <span id="projectTitle" class="font-semibold text-gray-800 text-right">-</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Property Address</span>
+                <span class="font-semibold text-gray-800 text-right">Tetuan Zamboanga City</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Property Type</span>
+                <span class="font-semibold text-gray-800">Residential</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Lot Size (sqm)</span>
+                <span class="font-semibold text-gray-800">3,000</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Target Timeline</span>
+                <span class="font-semibold text-gray-800">6 months</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Budget</span>
+                <span class="font-semibold text-gray-800">PHP 1,000,000</span>
+              </div>
+              <div class="flex justify-between items-start">
+                <span class="text-sm text-gray-600">Bidding Deadline</span>
+                <span class="font-semibold text-gray-800">Nov 20, 2025</span>
+              </div>
+              <div class="pt-2 border-t border-purple-100">
+                <div class="text-sm text-gray-600 mb-2">Attachments</div>
+                <div class="space-y-1">
+                  <a href="#" class="text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-2 text-sm transition-colors hover:underline">
                     <i class="fi fi-rr-paperclip"></i> sample_photo.jpeg
                   </a>
-                </div>
-                <div>
-                  <div class="text-gray-600 text-sm mb-1">Supporting Files</div>
-                  <div class="space-y-1">
-                    <a href="#" class="text-amber-600 hover:text-amber-700 inline-flex items-center gap-2 text-sm"><i class="fi fi-rr-paperclip"></i> sample_photo.jpeg</a>
-                    <a href="#" class="text-amber-600 hover:text-amber-700 inline-flex items-center gap-2 text-sm"><i class="fi fi-rr-paperclip"></i> sample_photo2.jpeg</a>
-                  </div>
+                  <a href="#" class="text-amber-600 hover:text-amber-700 inline-flex items-center gap-2 text-sm transition-colors hover:underline">
+                    <i class="fi fi-rr-paperclip"></i> sample_photo2.jpeg
+                  </a>
                 </div>
               </div>
             </div>
@@ -685,90 +857,123 @@
         </div>
 
         <!-- Bid Details -->
-        <div class="mb-8">
-          <h3 class="font-semibold text-gray-800 mb-4">Bid Details</h3>
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-green-500 shadow-md">
+              <i class="fi fi-rr-calculator text-white text-lg"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800">Bid Details</h3>
+          </div>
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Inputs left -->
             <div class="space-y-4 lg:col-span-1">
-              <div>
-                <label class="block text-sm text-gray-600 mb-1">Proposed Cost (PHP)</label>
+              <div class="view-input-group">
+                <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <i class="fi fi-rr-coins text-indigo-500"></i>
+                  Proposed Cost (PHP)
+                </label>
                 <div class="relative">
-                  <input id="proposedCost" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-400 focus:border-transparent" placeholder="0.00">
-                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">PHP</span>
+                  <input id="proposedCost" type="text" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all" placeholder="0.00" readonly>
+                  <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">PHP</span>
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-sm text-gray-600 mb-1">Start Date</label>
-                  <input id="startDate" type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-400 focus:border-transparent" />
+                <div class="view-input-group">
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fi fi-rr-calendar-day text-green-500"></i> Start
+                  </label>
+                  <input id="startDate" type="date" class="w-full border-2 border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all" readonly />
                 </div>
-                <div>
-                  <label class="block text-sm text-gray-600 mb-1">Estimated Completion</label>
-                  <input id="endDate" type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-400 focus:border-transparent" />
+                <div class="view-input-group">
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fi fi-rr-calendar-check text-amber-500"></i> End
+                  </label>
+                  <input id="endDate" type="date" class="w-full border-2 border-gray-300 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all" readonly />
                 </div>
               </div>
-              <div>
-                <label class="block text-sm text-gray-600 mb-1">Description</label>
-                <textarea id="bidDescription" rows="5" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-400 focus:border-transparent" placeholder="Write a compelling message to the client."></textarea>
+              <div class="view-input-group">
+                <label class="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <i class="fi fi-rr-document text-purple-500"></i>
+                  Description
+                </label>
+                <textarea id="bidDescription" rows="6" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none" placeholder="Bid description..." readonly></textarea>
               </div>
             </div>
 
             <!-- Files right -->
             <div class="lg:col-span-2">
-              <div class="overflow-hidden rounded-xl border border-gray-200">
-                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 text-sm font-medium text-gray-700">Supporting Files</div>
-                <div class="overflow-x-auto">
+              <div class="overflow-hidden rounded-xl border-2 border-gray-200 shadow-sm view-files-table">
+                <div class="bg-gradient-to-r from-gray-50 to-gray-100 px-5 py-4 border-b-2 border-gray-200 flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <i class="fi fi-rr-folder text-indigo-600"></i>
+                    <span class="text-sm font-bold text-gray-700">Supporting Files</span>
+                  </div>
+                  <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-medium">3 Files</span>
+                </div>
+                <div>
                   <table class="w-full">
-                    <thead>
-                      <tr class="text-gray-600">
-                        <th class="text-left px-5 py-3 text-sm font-semibold">Files</th>
-                        <th class="text-left px-5 py-3 text-sm font-semibold">Date Submitted</th>
-                        <th class="text-left px-5 py-3 text-sm font-semibold">User Name</th>
-                        <th class="text-left px-5 py-3 text-sm font-semibold">Position</th>
-                        <th class="text-left px-5 py-3 text-sm font-semibold">Action</th>
+                    <thead class="bg-gray-50">
+                      <tr class="text-gray-600 border-b border-gray-200">
+                        <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wide">Files</th>
+                        <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wide">Date</th>
+                        <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wide">User</th>
+                        <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wide">Position</th>
+                        <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wide">Action</th>
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
-                      <tr>
+                      <tr class="hover:bg-indigo-50/30 transition-colors view-file-row">
                         <td class="px-5 py-3">
                           <div class="flex items-center gap-3">
-                            <span class="inline-flex items-center justify-center w-8 h-8 bg-gray-100 rounded-md text-gray-700 font-semibold">PDF</span>
-                            <span class="text-gray-800">Progress Report</span>
+                            <div class="w-10 h-10 bg-gradient-to-br from-red-500 to-rose-600 rounded-lg flex items-center justify-center shadow-sm">
+                              <i class="fi fi-rr-file-pdf text-white text-sm"></i>
+                            </div>
+                            <span class="text-gray-800 font-medium">Progress Report</span>
                           </div>
                         </td>
-                        <td class="px-5 py-3 text-gray-700">Dec 23, 2022</td>
-                        <td class="px-5 py-3 text-gray-700">Carl Saludo</td>
-                        <td class="px-5 py-3 text-gray-700">Architect</td>
+                        <td class="px-5 py-3 text-gray-700 text-sm">Dec 23, 2022</td>
+                        <td class="px-5 py-3 text-gray-700 text-sm">Carl Saludo</td>
+                        <td class="px-5 py-3 text-gray-700 text-sm">Architect</td>
                         <td class="px-5 py-3">
-                          <button class="action-btn rounded-2xl action-btn--view" title="Download"><i class="fi fi-rr-download"></i></button>
+                          <button class="w-9 h-9 rounded-full bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all hover:scale-110" title="Download">
+                            <i class="fi fi-rr-download text-blue-600"></i>
+                          </button>
                         </td>
                       </tr>
-                      <tr>
+                      <tr class="hover:bg-indigo-50/30 transition-colors view-file-row">
                         <td class="px-5 py-3">
                           <div class="flex items-center gap-3">
-                            <span class="inline-flex items-center justify-center w-8 h-8 bg-gray-100 rounded-md text-gray-700 font-semibold">PDF</span>
-                            <span class="text-gray-800">Specification Sheet</span>
+                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
+                              <i class="fi fi-rr-file-pdf text-white text-sm"></i>
+                            </div>
+                            <span class="text-gray-800 font-medium">Specification Sheet</span>
                           </div>
                         </td>
-                        <td class="px-5 py-3 text-gray-700">Dec 23, 2022</td>
-                        <td class="px-5 py-3 text-gray-700">Carl Saludo</td>
-                        <td class="px-5 py-3 text-gray-700">Architect</td>
+                        <td class="px-5 py-3 text-gray-700 text-sm">Dec 23, 2022</td>
+                        <td class="px-5 py-3 text-gray-700 text-sm">Carl Saludo</td>
+                        <td class="px-5 py-3 text-gray-700 text-sm">Architect</td>
                         <td class="px-5 py-3">
-                          <button class="action-btn rounded-2xl action-btn--view" title="Download"><i class="fi fi-rr-download"></i></button>
+                          <button class="w-9 h-9 rounded-full bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all hover:scale-110" title="Download">
+                            <i class="fi fi-rr-download text-blue-600"></i>
+                          </button>
                         </td>
                       </tr>
-                      <tr>
+                      <tr class="hover:bg-indigo-50/30 transition-colors view-file-row">
                         <td class="px-5 py-3">
                           <div class="flex items-center gap-3">
-                            <span class="inline-flex items-center justify-center w-8 h-8 bg-gray-100 rounded-md text-gray-700 font-semibold">PDF</span>
-                            <span class="text-gray-800">Progress Report</span>
+                            <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center shadow-sm">
+                              <i class="fi fi-rr-file-pdf text-white text-sm"></i>
+                            </div>
+                            <span class="text-gray-800 font-medium">Budget Breakdown</span>
                           </div>
                         </td>
-                        <td class="px-5 py-3 text-gray-700">Dec 23, 2022</td>
-                        <td class="px-5 py-3 text-gray-700">Carl Saludo</td>
-                        <td class="px-5 py-3 text-gray-700">Architect</td>
+                        <td class="px-5 py-3 text-gray-700 text-sm">Dec 23, 2022</td>
+                        <td class="px-5 py-3 text-gray-700 text-sm">Carl Saludo</td>
+                        <td class="px-5 py-3 text-gray-700 text-sm">Architect</td>
                         <td class="px-5 py-3">
-                          <button class="action-btn rounded-2xl action-btn--view" title="Download"><i class="fi fi-rr-download"></i></button>
+                          <button class="w-9 h-9 rounded-full bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all hover:scale-110" title="Download">
+                            <i class="fi fi-rr-download text-blue-600"></i>
+                          </button>
                         </td>
                       </tr>
                     </tbody>
@@ -778,6 +983,8 @@
             </div>
           </div>
         </div>
+
+  
       </div>
     </div>
   </div>

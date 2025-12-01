@@ -719,3 +719,275 @@ table {
   }
 }
 
+/* ===== VIEW BID MODAL (UNDER EVALUATION) ENHANCEMENTS ===== */
+
+/* Modal Overlay Animation */
+.view-modal-overlay.flex {
+  animation: viewBackdropFadeIn 0.3s ease-out;
+}
+
+@keyframes viewBackdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Panel Animation */
+.view-modal-overlay.flex .modal-panel {
+  animation: viewModalSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes viewModalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Icon Badge Pulse */
+.view-icon-badge {
+  animation: viewIconPulse 2s ease-in-out infinite;
+}
+
+@keyframes viewIconPulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.6);
+  }
+}
+
+/* Status Banner Animation */
+.view-status-banner {
+  animation: viewStatusSlideDown 0.5s ease-out 0.2s both;
+}
+
+@keyframes viewStatusSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slow Pulse for Status Icon */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Expand Button Rotation */
+.view-expand-btn i {
+  transition: transform 0.3s ease;
+}
+
+.view-expand-btn.active i {
+  transform: rotate(180deg);
+}
+
+/* Expand Content Animation */
+.view-expand-content {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.view-expand-content.show {
+  max-height: 200px;
+  opacity: 1;
+}
+
+/* Info Cards Cascade Animation */
+.view-info-card {
+  animation: viewCardFadeIn 0.5s ease-out backwards;
+}
+
+.view-info-card:nth-child(1) {
+  animation-delay: 0.3s;
+}
+
+.view-info-card:nth-child(2) {
+  animation-delay: 0.4s;
+}
+
+@keyframes viewCardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Info Card Hover Effect */
+.view-info-card {
+  transition: all 0.3s ease;
+}
+
+.view-info-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* Input Group Focus Animation */
+.view-input-group input:focus,
+.view-input-group textarea:focus {
+  transform: scale(1.01);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+/* Files Table Animation */
+.view-files-table {
+  animation: viewTableSlideUp 0.5s ease-out 0.5s both;
+}
+
+@keyframes viewTableSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* File Row Hover Effect */
+.view-file-row {
+  transition: all 0.2s ease;
+}
+
+.view-file-row:hover {
+  transform: translateX(4px);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+/* Close Button Hover */
+.view-close-btn {
+  transition: all 0.3s ease;
+}
+
+.view-close-btn:hover {
+  transform: rotate(90deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Action Footer Animation */
+.sticky.bottom-0 {
+  animation: viewFooterSlideUp 0.5s ease-out 0.6s both;
+}
+
+@keyframes viewFooterSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Button Hover Effects */
+.view-modal-overlay button:not(.view-close-btn):hover {
+  transform: translateY(-2px);
+}
+
+.view-modal-overlay button:not(.view-close-btn):active {
+  transform: translateY(0);
+}
+
+/* Gradient Text Animation */
+.bg-clip-text {
+  background-size: 200% auto;
+  animation: gradientShift 3s ease infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% center;
+  }
+  50% {
+    background-position: 100% center;
+  }
+}
+
+/* Smooth Scroll for Modal Content */
+.view-modal-content {
+  scroll-behavior: smooth;
+}
+
+.view-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.view-modal-content::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.view-modal-content::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.view-modal-content::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Loading State for Inputs */
+.view-input-group input[readonly],
+.view-input-group textarea[readonly] {
+  background: #fafafa;
+  cursor: not-allowed;
+}
+
+/* Badge Animations */
+.view-status-banner .animate-pulse {
+  animation: statusPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes statusPulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .view-info-card {
+    animation-delay: 0s !important;
+  }
+  
+  .view-files-table {
+    animation-delay: 0s !important;
+  }
+}
+

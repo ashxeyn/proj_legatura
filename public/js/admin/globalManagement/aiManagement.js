@@ -303,4 +303,110 @@ document.addEventListener('DOMContentLoaded', function() {
       setTimeout(() => toast.remove(), 300);
     }, 3000);
   }
+
+  // ===================== Charts Initialization (moved from Blade) =====================
+  const lineCanvas = document.getElementById('aiRiskLineChart');
+  if (lineCanvas && window.Chart) {
+    const ctxLine = lineCanvas.getContext('2d');
+    new Chart(ctxLine, {
+      type: 'line',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+        datasets: [
+          {
+            label: 'On Track',
+            data: [12000, 9000, 11000, 20000, 30000, 22000, 25000],
+            borderColor: '#FFD600',
+            backgroundColor: 'rgba(255, 214, 0, 0.08)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 7,
+            pointBackgroundColor: '#FFD600',
+            pointBorderColor: '#FFD600',
+          },
+          {
+            label: 'At Risk',
+            data: [8000, 12000, 15000, 14000, 18000, 21000, 30000],
+            borderColor: '#FFA726',
+            backgroundColor: 'rgba(255, 167, 38, 0.08)',
+            fill: false,
+            borderDash: [6, 6],
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 7,
+            pointBackgroundColor: '#FFA726',
+            pointBorderColor: '#FFA726',
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: true,
+            backgroundColor: '#222',
+            titleColor: '#FFD600',
+            bodyColor: '#fff',
+            borderColor: '#FFD600',
+            borderWidth: 1,
+            padding: 12,
+            callbacks: {
+              label: function(context) {
+                return `${context.dataset.label}: ${context.parsed.y.toLocaleString()}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#fff', font: { weight: 'bold' } }
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.08)' },
+            ticks: { color: '#fff', font: { weight: 'bold' } }
+          }
+        }
+      }
+    });
+  }
+
+  const donutCanvas = document.getElementById('projectStatusDonut');
+  if (donutCanvas && window.Chart) {
+    const ctxDonut = donutCanvas.getContext('2d');
+    new Chart(ctxDonut, {
+      type: 'doughnut',
+      data: {
+        labels: ['On Track', 'At Risk', 'Delayed'],
+        datasets: [{
+          data: [70, 15, 15],
+          backgroundColor: ['#FFD600', '#FFA726', '#0A2342'],
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        cutout: '70%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: true,
+            backgroundColor: '#222',
+            titleColor: '#FFD600',
+            bodyColor: '#fff',
+            borderColor: '#FFD600',
+            borderWidth: 1,
+            padding: 12,
+            callbacks: {
+              label: function(context) {
+                return `${context.label}: ${context.parsed}%`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+  // =================== End Charts Initialization ===================
 });

@@ -10,6 +10,7 @@ use App\Http\Controllers\admin\dashboardController;
 use App\Http\Controllers\admin\analyticsController;
 use App\Http\Controllers\admin\userManagementController;
 use App\Http\Controllers\admin\globalManagementController;
+use App\Http\Controllers\admin\ProjectAdminController;
 
 Route::get('/', function () {
     return view('startPoint');
@@ -21,6 +22,19 @@ Route::post('/accounts/login', [authController::class, 'login'])->name('accounts
 Route::get('/accounts/signup', [authController::class, 'showSignupForm'])->name('accounts.signup');
 Route::post('/accounts/logout', [authController::class, 'logout'])->name('accounts.logout');
 Route::get('/accounts/logout', [authController::class, 'logout'])->name('accounts.logout.get');
+
+// Admin Authentication Routes
+Route::get('/admin/login', function() {
+    return view('admin.logIn_signUp.logIn');
+})->name('admin.login');
+Route::post('/admin/login', [authController::class, 'adminLogin'])->name('admin.login.post');
+
+Route::get('/admin/signup', function() {
+    return view('admin.logIn_signUp.signUp');
+})->name('admin.signup');
+Route::post('/admin/signup', [authController::class, 'adminSignup'])->name('admin.signup.post');
+
+Route::post('/admin/logout', [authController::class, 'adminLogout'])->name('admin.logout');
 
 // Contractor Signup Routes
 Route::post('/accounts/signup/contractor/step1', [authController::class, 'contractorStep1']);
@@ -50,6 +64,10 @@ Route::get('/admin/analytics', [analyticsController::class, 'analytics'])->name(
 Route::get('/admin/analytics/timeline', [analyticsController::class, 'getProjectsTimelineData'])->name('admin.analytics.timeline');
 Route::get('/admin/analytics/subscription', [analyticsController::class, 'subscriptionAnalytics'])->name('admin.analytics.subscription');
 Route::get('/admin/analytics/subscription/revenue', [analyticsController::class, 'subscriptionRevenue'])->name('admin.analytics.subscription.revenue');
+Route::get('/admin/analytics/user-activity', [analyticsController::class, 'userActivityAnalytics'])->name('admin.analytics.userActivity');
+Route::get('/admin/analytics/project-performance', [analyticsController::class, 'projectPerformanceAnalytics'])->name('admin.analytics.projectPerformance');
+Route::get('/admin/analytics/bid-completion', [analyticsController::class, 'bidCompletionAnalytics'])->name('admin.analytics.bidCompletion');
+Route::get('/admin/analytics/reports', [analyticsController::class, 'reportsAnalytics'])->name('admin.analytics.reports');
 
 // User Management Routes
 Route::get('/admin/user-management/property-owners', [userManagementController::class, 'propertyOwners'])->name('admin.userManagement.propertyOwner');
@@ -64,6 +82,21 @@ Route::post('/admin/user-management/suspended-accounts/reactivate', [userManagem
 Route::get('/admin/global-management/bid-management', [globalManagementController::class, 'bidManagement'])->name('admin.globalManagement.bidManagement');
 Route::get('/admin/global-management/proof-of-payments', [globalManagementController::class, 'proofOfPayments'])->name('admin.globalManagement.proofOfpayments');
 Route::get('/admin/global-management/ai-management', [globalManagementController::class, 'aiManagement'])->name('admin.globalManagement.aiManagement');
+Route::get('/admin/global-management/posting-management', [globalManagementController::class, 'postingManagement'])->name('admin.globalManagement.postingManagement');
+
+// Project Management Routes
+Route::get('/admin/project-management/list-of-projects', [ProjectAdminController::class, 'listOfProjects'])->name('admin.projectManagement.listOfprojects');
+Route::get('/admin/project-management/subscriptions', [ProjectAdminController::class, 'subscriptions'])->name('admin.projectManagement.subscriptions');
+Route::get('/admin/project-management/disputes-reports', [ProjectAdminController::class, 'disputesReports'])->name('admin.projectManagement.disputesReports');
+Route::get('/admin/project-management/messages', [ProjectAdminController::class, 'messages'])->name('admin.projectManagement.messages');
+
+// Settings Routes
+Route::get('/admin/settings/notifications', function() {
+    return view('admin.settings.notifications');
+})->name('admin.settings.notifications');
+Route::get('/admin/settings/security', function() {
+    return view('admin.settings.security');
+})->name('admin.settings.security');
 
 Route::get('/dashboard', function() {
     return view('both.dashboard');

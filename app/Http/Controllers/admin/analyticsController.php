@@ -430,4 +430,36 @@ class analyticsController extends authController
             'dateRange' => $dateRange,
         ]);
     }
+
+    /**
+     * Show the user activity analytics page
+     */
+    public function userActivityAnalytics()
+    {
+        return view('admin.home.userActivity_Analytics');
+    }
+
+    /**
+     * Show the project performance analytics page
+     */
+    public function projectPerformanceAnalytics()
+    {
+        return view('admin.home.projectPerformance_Analytics');
+    }
+
+    /**
+     * Show the bid completion analytics page
+     */
+    public function bidCompletionAnalytics()
+    {
+        return view('admin.home.bidCompletion_Analytics');
+    }
+
+    /**
+     * Show the reports and analytics page
+     */
+    public function reportsAnalytics()
+    {
+        return view('admin.home.reportsAnalytics');
+    }
 }

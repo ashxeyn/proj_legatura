@@ -30,4 +30,12 @@ class globalManagementController extends Controller
     {
         return view('admin.globalManagement.aiManagement');
     }
+
+    /**
+     * Display the posting management page
+     */
+    public function postingManagement()
+    {
+        return view('admin.globalManagement.postingManagement');
+    }
 }

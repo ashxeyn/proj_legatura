@@ -92,4 +92,49 @@ class ProjectAdminController extends Controller
         ]);
         return back()->with('success','Contractor assigned.');
     }
+
+    public function subscriptions()
+    {
+        return view('admin.projectManagement.subscriptions');
+    }
+
+    public function listOfProjects()
+    {
+        return view('admin.projectManagement.listOfprojects');
+    }
+
+    public function disputesReports()
+    {
+        // Mock data for analytics - replace with real DB queries
+        $projectsAnalytics = [
+            'data' => [
+                ['label' => 'Completed', 'count' => 45],
+                ['label' => 'In Progress', 'count' => 32],
+                ['label' => 'Pending', 'count' => 18],
+                ['label' => 'Cancelled', 'count' => 5],
+            ]
+        ];
+
+        $projectSuccessRate = [
+            'data' => [
+                ['label' => 'Residential', 'count' => 65, 'color' => '#10b981'],
+                ['label' => 'Commercial', 'count' => 25, 'color' => '#3b82f6'],
+                ['label' => 'Industrial', 'count' => 10, 'color' => '#f59e0b'],
+            ]
+        ];
+
+        $projectsTimeline = [
+            'dateRange' => 'Jan 2025 - Nov 2025',
+            'months' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'],
+            'newProjects' => [12, 15, 18, 20, 22, 25, 28, 30, 35, 38, 40],
+            'completedProjects' => [8, 10, 12, 15, 18, 20, 22, 25, 28, 30, 32],
+        ];
+
+        return view('admin.projectManagement.disputesReports', compact('projectsAnalytics', 'projectSuccessRate', 'projectsTimeline'));
+    }
+
+    public function messages()
+    {
+        return view('admin.projectManagement.messages');
+    }
 }
