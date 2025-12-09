@@ -252,7 +252,7 @@
                     @if($housePhotos->count() > 1)
                         <div class="photo-gallery">
                             @foreach($housePhotos as $photo)
-                                <img src="{{ asset('storage/' . $photo->file_path) }}" alt="Property Photo" onclick="changeMainPhoto('{{ asset('storage/' . $photo->file_path) }}')">
+                                <img src="{{ asset('storage/' . $photo->file_path) }}" alt="Property Photo" class="thumbnail-photo" data-photo-url="{{ asset('storage/' . $photo->file_path) }}">
                             @endforeach
                         </div>
                     @endif
@@ -379,6 +379,17 @@
         function changeMainPhoto(photoSrc) {
             document.getElementById('mainPhoto').src = photoSrc;
         }
+        
+        // Handle thumbnail clicks
+        document.addEventListener('DOMContentLoaded', function() {
+            const thumbnails = document.querySelectorAll('.thumbnail-photo');
+            thumbnails.forEach(function(thumbnail) {
+                thumbnail.addEventListener('click', function() {
+                    const photoUrl = this.getAttribute('data-photo-url');
+                    changeMainPhoto(photoUrl);
+                });
+            });
+        });
     </script>
 </body>
 </html>

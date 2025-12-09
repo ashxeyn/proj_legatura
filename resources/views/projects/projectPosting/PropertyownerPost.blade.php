@@ -180,6 +180,8 @@
             border-radius: 4px;
             font-size: 16px;
             transition: background-color 0.3s;
+            border: none;
+            cursor: pointer;
         }
 
         .btn-primary {
@@ -197,6 +199,28 @@
         }
 
         .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .btn-apply-bid {
+            background-color: #ff6b35;
+            color: white;
+            padding: 14px 40px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 8px;
+        }
+
+        .btn-apply-bid:hover {
+            background-color: #e55a2b;
+        }
+
+        .btn-back {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-back:hover {
             background-color: #5a6268;
         }
 
@@ -228,7 +252,7 @@
                     @if($housePhotos->count() > 1)
                         <div class="photo-gallery">
                             @foreach($housePhotos as $photo)
-                                <img src="{{ asset('storage/' . $photo->file_path) }}" alt="Property Photo" onclick="changeMainPhoto('{{ asset('storage/' . $photo->file_path) }}')">
+                                <img src="{{ asset('storage/' . $photo->file_path) }}" alt="Property Photo" class="thumbnail-photo" data-photo-url="{{ asset('storage/' . $photo->file_path) }}">
                             @endforeach
                         </div>
                     @endif
@@ -355,6 +379,17 @@
         function changeMainPhoto(photoSrc) {
             document.getElementById('mainPhoto').src = photoSrc;
         }
+        
+        // Handle thumbnail clicks
+        document.addEventListener('DOMContentLoaded', function() {
+            const thumbnails = document.querySelectorAll('.thumbnail-photo');
+            thumbnails.forEach(function(thumbnail) {
+                thumbnail.addEventListener('click', function() {
+                    const photoUrl = this.getAttribute('data-photo-url');
+                    changeMainPhoto(photoUrl);
+                });
+            });
+        });
     </script>
 </body>
 </html>

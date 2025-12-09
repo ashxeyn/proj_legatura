@@ -4,15 +4,17 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ProjectAdminController extends Controller
 {
     public function index(Request $request)
     {
         $q = DB::table('projects')
-            ->leftJoin('property_owners', 'projects.owner_id', '=', 'property_owners.owner_id')
+            ->leftJoin('project_relationships', 'projects.relationship_id', '=', 'project_relationships.rel_id')
+            ->leftJoin('property_owners', 'project_relationships.owner_id', '=', 'property_owners.owner_id')
             ->select('projects.*', 'property_owners.first_name', 'property_owners.last_name')
-            ->orderBy('projects.created_at', 'desc')
+            ->orderBy('projects.project_id', 'desc')
             ->paginate(20);
 
         return view('admin.projects.index', compact('q'));
@@ -93,48 +95,268 @@ class ProjectAdminController extends Controller
         return back()->with('success','Contractor assigned.');
     }
 
-    public function subscriptions()
+    /**
+     * List of projects - admin view with filters
+     */
+    public function listOfProjects(Request $request)
     {
-        return view('admin.projectManagement.subscriptions');
+        $query = DB::table('projects')
+            ->join('project_relationships', 'projects.relationship_id', '=', 'project_relationships.rel_id')
+            ->leftJoin('property_owners', 'project_relationships.owner_id', '=', 'property_owners.owner_id')
+            ->leftJoin('contractors', 'projects.selected_contractor_id', '=', 'contractors.contractor_id')
+            ->leftJoin('users', 'property_owners.user_id', '=', 'users.user_id')
+            ->select(
+                'projects.*',
+                'property_owners.first_name',
+                'property_owners.last_name',
+                DB::raw('COALESCE(users.email, "") as owner_email'),
+                'contractors.company_name'
+            );
+
+        // Apply filters
+        if ($request->has('status') && $request->input('status')) {
+            $query->where('projects.project_status', $request->input('status'));
+        }
+
+        if ($request->has('search') && $request->input('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('projects.project_title', 'like', "%{$search}%")
+                  ->orWhere('users.email', 'like', "%{$search}%");
+            });
+        }
+
+        $projects = $query->orderBy('projects.project_id', 'desc')->paginate(15);
+
+        return view('admin.projectManagement.listOfprojects', [
+            'projects' => $projects
+        ]);
     }
 
-    public function listOfProjects()
+    /**
+     * Show subscription management
+     */
+    public function subscriptions(Request $request)
     {
-        return view('admin.projectManagement.listOfprojects');
+        // subscriptions table does not exist in schema; return empty stub
+        $subscriptions = collect();
+
+        return view('admin.projectManagement.subscriptions', [
+            'subscriptions' => $subscriptions
+        ]);
     }
 
+    /**
+     * Show disputes and reports with analytics
+     */
     public function disputesReports()
     {
-        // Mock data for analytics - replace with real DB queries
+        // Get actual dispute data
+        $disputes = DB::table('disputes')
+            ->join('projects', 'disputes.project_id', '=', 'projects.project_id')
+            ->select(
+                'disputes.*',
+                'projects.project_title'
+            )
+            ->orderBy('disputes.created_at', 'desc')
+            ->get();
+
+        // Projects analytics
         $projectsAnalytics = [
-            'data' => [
-                ['label' => 'Completed', 'count' => 45],
-                ['label' => 'In Progress', 'count' => 32],
-                ['label' => 'Pending', 'count' => 18],
-                ['label' => 'Cancelled', 'count' => 5],
-            ]
+            'data' => DB::table('projects')
+                ->select('project_status', DB::raw('count(*) as count'))
+                ->groupBy('project_status')
+                ->get()
+                ->toArray()
         ];
 
+        // Project success rate by type
         $projectSuccessRate = [
-            'data' => [
-                ['label' => 'Residential', 'count' => 65, 'color' => '#10b981'],
-                ['label' => 'Commercial', 'count' => 25, 'color' => '#3b82f6'],
-                ['label' => 'Industrial', 'count' => 10, 'color' => '#f59e0b'],
-            ]
+            'data' => DB::table('projects')
+                ->select('property_type', DB::raw('count(*) as count'))
+                ->where('project_status', 'completed')
+                ->groupBy('property_type')
+                ->get()
+                ->toArray()
         ];
 
+        // Projects timeline
         $projectsTimeline = [
-            'dateRange' => 'Jan 2025 - Nov 2025',
-            'months' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'],
-            'newProjects' => [12, 15, 18, 20, 22, 25, 28, 30, 35, 38, 40],
-            'completedProjects' => [8, 10, 12, 15, 18, 20, 22, 25, 28, 30, 32],
+            'dateRange' => now()->subMonths(11)->format('M Y') . ' - ' . now()->format('M Y'),
+            'months' => [],
+            'newProjects' => [],
+            'completedProjects' => []
         ];
 
-        return view('admin.projectManagement.disputesReports', compact('projectsAnalytics', 'projectSuccessRate', 'projectsTimeline'));
+        for ($i = 11; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $projectsTimeline['months'][] = $date->format('M');
+            
+            if (Schema::hasColumn('projects', 'created_at')) {
+                $newCount = DB::table('projects')
+                    ->whereYear('created_at', $date->year)
+                    ->whereMonth('created_at', $date->month)
+                    ->count();
+            } else {
+                $newCount = DB::table('project_relationships')
+                    ->whereYear('created_at', $date->year)
+                    ->whereMonth('created_at', $date->month)
+                    ->count();
+            }
+            $projectsTimeline['newProjects'][] = $newCount;
+
+            if (Schema::hasColumn('projects', 'updated_at')) {
+                $completedCount = DB::table('projects')
+                    ->whereYear('updated_at', $date->year)
+                    ->whereMonth('updated_at', $date->month)
+                    ->where('project_status', 'completed')
+                    ->count();
+            } else {
+                $completedCount = DB::table('projects')
+                    ->join('project_relationships', 'projects.relationship_id', '=', 'project_relationships.rel_id')
+                    ->where('project_status', 'completed')
+                    ->whereYear('project_relationships.created_at', $date->year)
+                    ->whereMonth('project_relationships.created_at', $date->month)
+                    ->count();
+            }
+            $projectsTimeline['completedProjects'][] = $completedCount;
+        }
+
+        return view('admin.projectManagement.disputesReports', [
+            'disputes' => $disputes,
+            'projectsAnalytics' => $projectsAnalytics,
+            'projectSuccessRate' => $projectSuccessRate,
+            'projectsTimeline' => $projectsTimeline
+        ]);
     }
 
-    public function messages()
+    /**
+     * Show messages/communications
+     */
+    public function messages(Request $request)
     {
-        return view('admin.projectManagement.messages');
+        // messages table has no project_id column; return an empty paginator
+        $messages = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 20, 1, ['path' => request()->url()]);
+
+        return view('admin.projectManagement.messages', [
+            'messages' => $messages
+        ]);
+    }
+
+    // =============================================
+    // API METHODS FOR AJAX CALLS
+    // =============================================
+
+    /**
+     * Get projects as JSON (for AJAX)
+     */
+    public function getProjectsApi(Request $request)
+    {
+        $search = $request->input('search');
+        $status = $request->input('status');
+        $page = $request->input('page', 1);
+
+        $query = DB::table('projects')
+            ->join('project_relationships', 'projects.relationship_id', '=', 'project_relationships.rel_id')
+            ->leftJoin('property_owners', 'project_relationships.owner_id', '=', 'property_owners.owner_id')
+            ->leftJoin('contractors', 'projects.selected_contractor_id', '=', 'contractors.contractor_id')
+            ->leftJoin('users', 'property_owners.user_id', '=', 'users.user_id')
+            ->select(
+                'projects.*',
+                'property_owners.first_name',
+                'property_owners.last_name',
+                DB::raw('COALESCE(users.email, "") as owner_email'),
+                'contractors.company_name'
+            );
+
+        if ($search) {
+            $query->where('projects.project_title', 'like', "%{$search}%");
+        }
+
+        if ($status) {
+            $query->where('projects.project_status', $status);
+        }
+
+        $projects = $query->orderBy('projects.project_id', 'desc')->paginate(15, ['*'], 'page', $page);
+
+        return response()->json($projects);
+    }
+
+    /**
+     * Get subscriptions as JSON (for AJAX)
+     * Note: subscriptions table does not exist in current schema; returning empty stub
+     */
+    public function getSubscriptionsApi(Request $request)
+    {
+        return response()->json([
+            'data' => [],
+            'current_page' => 1,
+            'total' => 0,
+            'per_page' => 15,
+            'last_page' => 1
+        ]);
+    }
+
+    /**
+     * Get messages as JSON (for AJAX)
+     * Note: messages table has no project_id column; returning stub data
+     */
+    public function getMessagesApi(Request $request)
+    {
+        $page = $request->input('page', 1);
+
+        return response()->json([
+            'data' => [],
+            'current_page' => $page,
+            'total' => 0,
+            'per_page' => 20,
+            'last_page' => 1
+        ]);
+    }
+
+    /**
+     * Get disputes as JSON (for AJAX)
+     */
+    public function getDisputesApi(Request $request)
+    {
+        $page = $request->input('page', 1);
+
+        $disputes = DB::table('disputes')
+            ->join('projects', 'disputes.project_id', '=', 'projects.project_id')
+            ->select(
+                'disputes.*',
+                'projects.project_title'
+            )
+            ->orderBy('disputes.created_at', 'desc')
+            ->paginate(20, ['*'], 'page', $page);
+
+        return response()->json($disputes);
+    }
+
+    /**
+     * Get analytics data (projects, disputes, stats)
+     */
+    public function getProjectsAnalyticsApi()
+    {
+        // Projects by status
+        $projectsByStatus = DB::table('projects')
+            ->select('project_status', DB::raw('count(*) as count'))
+            ->groupBy('project_status')
+            ->get();
+
+        // Projects by property type
+        $projectsByType = DB::table('projects')
+            ->select('property_type', DB::raw('count(*) as count'))
+            ->groupBy('property_type')
+            ->get();
+
+        // Disputes count
+        $disputes = DB::table('disputes')->count();
+
+        return response()->json([
+            'by_status' => $projectsByStatus,
+            'by_type' => $projectsByType,
+            'disputes' => $disputes
+        ]);
     }
 }

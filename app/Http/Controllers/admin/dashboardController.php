@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\admin;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use App\Http\Controllers\authController;
 
 class dashboardController extends authController
@@ -91,11 +92,12 @@ class dashboardController extends authController
                 // No project_image in schema, use NULL as placeholder
                 DB::raw('NULL as project_image'),
                 'projects.project_status',
-                'property_owners.first_name',
-                'property_owners.last_name',
+                DB::raw("COALESCE(property_owners.first_name, '') as first_name"),
+                DB::raw("COALESCE(property_owners.last_name, '') as last_name"),
                 DB::raw('COUNT(bids.bid_id) as bid_count')
             )
-            ->leftJoin('property_owners', 'projects.owner_id', '=', 'property_owners.owner_id')
+            ->leftJoin('project_relationships', 'projects.relationship_id', '=', 'project_relationships.rel_id')
+            ->leftJoin('property_owners', 'project_relationships.owner_id', '=', 'property_owners.owner_id')
             ->leftJoin('bids', 'projects.project_id', '=', 'bids.project_id')
             ->groupBy(
                 'projects.project_id',
@@ -112,7 +114,6 @@ class dashboardController extends authController
         foreach ($projects as $p) {
             $p->status_label = $this->mapProjectStatus($p->project_status);
         }
-        return $projects;
         return $projects;
     }
 
@@ -140,7 +141,8 @@ class dashboardController extends authController
     {
         $totalProjects = DB::table('projects')->count();
 
-        $monthlyData = DB::table('projects')
+        // projects table has no created_at; use project_relationships.created_at instead
+        $monthlyData = DB::table('project_relationships')
             ->select(
                 DB::raw('MONTH(created_at) as month'),
                 DB::raw('COUNT(*) as count')
@@ -226,19 +228,19 @@ class dashboardController extends authController
      */
     private function getRevenueMetrics()
     {
-        // milestone payments approved
+        // milestone payments approved (payment_status = 'approved')
         $milestoneMonthly = DB::table('milestone_payments')
             ->select(
                 DB::raw('MONTH(transaction_date) as month'),
                 DB::raw('IFNULL(SUM(amount),0) as sum')
             )
-            ->where('is_approved', 1)
+            ->where('payment_status', 'approved')
             ->whereRaw('YEAR(transaction_date) = YEAR(CURRENT_DATE)')
             ->groupBy(DB::raw('MONTH(transaction_date)'))
             ->orderBy(DB::raw('MONTH(transaction_date)'))
             ->get();
 
-        // platform payments approved
+        // platform payments approved (is_approved = 1)
         $platformMonthly = DB::table('platform_payments')
             ->select(
                 DB::raw('MONTH(transaction_date) as month'),
@@ -337,25 +339,77 @@ class dashboardController extends authController
      */
     private function getTopPropertyOwners($limit = 5)
     {
-        return DB::table('property_owners')
-            ->select(
-                'property_owners.owner_id',
-                'property_owners.first_name',
-                'property_owners.last_name',
-                'users.profile_pic',
-                DB::raw('COUNT(projects.project_id) as completed_projects')
-            )
-            ->join('users', 'property_owners.user_id', '=', 'users.user_id')
-            ->leftJoin('projects', 'property_owners.owner_id', '=', 'projects.owner_id')
-            ->groupBy(
-                'property_owners.owner_id',
-                'property_owners.first_name',
-                'property_owners.last_name',
-                'users.profile_pic'
-            )
-            ->orderBy('completed_projects', 'desc')
-            ->limit($limit)
-            ->get();
+        // Build a robust query that adapts to actual DB column names.
+        // Some environments use `user_id`/`owner_id` while others use `id`.
+        $propTable = 'property_owners';
+        $usersTable = 'users';
+        $projectsTable = 'projects';
+
+        // Decide user PK column
+        $userPk = Schema::hasColumn($usersTable, 'user_id') ? 'user_id' : 'id';
+
+        // Decide property owner PK and FK names
+        $ownerPk = Schema::hasColumn($propTable, 'owner_id') ? 'owner_id' : 'id';
+        $ownerUserFk = Schema::hasColumn($propTable, 'user_id') ? 'user_id' : null;
+
+        // Decide projects foreign key to property_owners
+        $projectsOwnerFk = Schema::hasColumn($projectsTable, 'owner_id') ? 'owner_id' : null;
+
+        $selects = [
+            "$propTable.$ownerPk as owner_id",
+            "$propTable.first_name",
+            "$propTable.last_name",
+        ];
+
+        // profile_pic may live on users table
+        if (Schema::hasColumn($usersTable, 'profile_pic') && $ownerUserFk) {
+            $selects[] = "$usersTable.profile_pic";
+        } else {
+            // fallback: null as profile_pic
+            $selects[] = DB::raw('NULL as profile_pic');
+        }
+
+        // Determine if we can count projects.project_id and how to join projects
+        $hasProjectId = Schema::hasColumn($projectsTable, 'project_id');
+        $countExpr = '0';
+
+        $qb = DB::table($propTable)->select($selects);
+
+        // join users if possible
+        if ($ownerUserFk && Schema::hasColumn($usersTable, $userPk)) {
+            $qb->join($usersTable, "$propTable.$ownerUserFk", '=', "$usersTable.$userPk");
+        }
+
+        if ($hasProjectId) {
+            // Prefer direct owner_id on projects if available
+            if (Schema::hasColumn($projectsTable, 'owner_id')) {
+                $qb->leftJoin($projectsTable, "$propTable.$ownerPk", '=', "$projectsTable.owner_id");
+                $countExpr = "COUNT($projectsTable.project_id)";
+            } elseif (Schema::hasColumn($projectsTable, 'relationship_id') && Schema::hasColumn('project_relationships', 'rel_id') && Schema::hasColumn('project_relationships', 'owner_id')) {
+                // join through project_relationships
+                $qb->leftJoin('project_relationships', "project_relationships.owner_id", '=', "$propTable.$ownerPk");
+                $qb->leftJoin($projectsTable, "$projectsTable.relationship_id", '=', "project_relationships.rel_id");
+                $countExpr = "COUNT($projectsTable.project_id)";
+            }
+        }
+
+        // Add completed_projects selection
+        if ($countExpr === '0') {
+            $qb->addSelect(DB::raw('0 as completed_projects'));
+        } else {
+            $qb->addSelect(DB::raw($countExpr . ' as completed_projects'));
+        }
+
+        $qb->groupBy("$propTable.$ownerPk", "$propTable.first_name", "$propTable.last_name");
+
+        // include users.profile_pic in groupBy when joined
+        if ($ownerUserFk && Schema::hasColumn($usersTable, $userPk) && Schema::hasColumn($usersTable, 'profile_pic')) {
+            $qb->groupBy("$usersTable.profile_pic");
+        }
+
+        $qb->orderBy('completed_projects', 'desc')->limit($limit);
+
+        return $qb->get();
     }
 
     /**

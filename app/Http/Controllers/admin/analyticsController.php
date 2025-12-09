@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\admin;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use App\Http\Controllers\authController;
 
 class analyticsController extends authController
@@ -320,19 +321,37 @@ class analyticsController extends authController
             $monthLabel = date('M Y', strtotime($date));
             $months[] = $monthLabel;
             
-            // Count new projects created in this month
-            $newCount = DB::table('projects')
-                ->whereYear('created_at', date('Y', strtotime($date)))
-                ->whereMonth('created_at', date('m', strtotime($date)))
-                ->count();
+            // Count new projects created in this month. Use projects.created_at if present,
+            // otherwise use project_relationships.created_at which exists in live schema.
+            if (Schema::hasColumn('projects', 'created_at')) {
+                $newCount = DB::table('projects')
+                    ->whereYear('created_at', date('Y', strtotime($date)))
+                    ->whereMonth('created_at', date('m', strtotime($date)))
+                    ->count();
+            } else {
+                $newCount = DB::table('project_relationships')
+                    ->whereYear('created_at', date('Y', strtotime($date)))
+                    ->whereMonth('created_at', date('m', strtotime($date)))
+                    ->count();
+            }
             $newProjects[] = $newCount;
             
-            // Count projects completed in this month
-            $completedCount = DB::table('projects')
-                ->where('project_status', 'completed')
-                ->whereYear('updated_at', date('Y', strtotime($date)))
-                ->whereMonth('updated_at', date('m', strtotime($date)))
-                ->count();
+            // Count projects completed in this month. Prefer `projects.updated_at` if present,
+            // otherwise fall back to `project_relationships.created_at` as an approximation.
+            if (Schema::hasColumn('projects', 'updated_at')) {
+                $completedCount = DB::table('projects')
+                    ->where('project_status', 'completed')
+                    ->whereYear('updated_at', date('Y', strtotime($date)))
+                    ->whereMonth('updated_at', date('m', strtotime($date)))
+                    ->count();
+            } else {
+                $completedCount = DB::table('projects')
+                    ->join('project_relationships', 'projects.relationship_id', '=', 'project_relationships.rel_id')
+                    ->where('project_status', 'completed')
+                    ->whereYear('project_relationships.created_at', date('Y', strtotime($date)))
+                    ->whereMonth('project_relationships.created_at', date('m', strtotime($date)))
+                    ->count();
+            }
             $completedProjects[] = $completedCount;
         }
         
@@ -391,19 +410,37 @@ class analyticsController extends authController
             $monthLabel = date('M Y', strtotime($date));
             $months[] = $monthLabel;
             
-            // Count new projects created in this month
-            $newCount = DB::table('projects')
-                ->whereYear('created_at', date('Y', strtotime($date)))
-                ->whereMonth('created_at', date('m', strtotime($date)))
-                ->count();
+            // Count new projects created in this month. Use projects.created_at if present,
+            // otherwise use project_relationships.created_at.
+            if (Schema::hasColumn('projects', 'created_at')) {
+                $newCount = DB::table('projects')
+                    ->whereYear('created_at', date('Y', strtotime($date)))
+                    ->whereMonth('created_at', date('m', strtotime($date)))
+                    ->count();
+            } else {
+                $newCount = DB::table('project_relationships')
+                    ->whereYear('created_at', date('Y', strtotime($date)))
+                    ->whereMonth('created_at', date('m', strtotime($date)))
+                    ->count();
+            }
             $newProjects[] = $newCount;
             
-            // Count projects completed in this month
-            $completedCount = DB::table('projects')
-                ->where('project_status', 'completed')
-                ->whereYear('updated_at', date('Y', strtotime($date)))
-                ->whereMonth('updated_at', date('m', strtotime($date)))
-                ->count();
+            // Count projects completed in this month. Prefer `projects.updated_at` if present,
+            // otherwise fall back to `project_relationships.created_at` as an approximation.
+            if (Schema::hasColumn('projects', 'updated_at')) {
+                $completedCount = DB::table('projects')
+                    ->where('project_status', 'completed')
+                    ->whereYear('updated_at', date('Y', strtotime($date)))
+                    ->whereMonth('updated_at', date('m', strtotime($date)))
+                    ->count();
+            } else {
+                $completedCount = DB::table('projects')
+                    ->join('project_relationships', 'projects.relationship_id', '=', 'project_relationships.rel_id')
+                    ->where('project_status', 'completed')
+                    ->whereYear('project_relationships.created_at', date('Y', strtotime($date)))
+                    ->whereMonth('project_relationships.created_at', date('m', strtotime($date)))
+                    ->count();
+            }
             $completedProjects[] = $completedCount;
         }
         
@@ -461,5 +498,70 @@ class analyticsController extends authController
     public function reportsAnalytics()
     {
         return view('admin.home.reportsAnalytics');
+    }
+
+    // =============================================
+    // API METHODS FOR AJAX CALLS
+    // =============================================
+
+    /**
+     * Get projects analytics as JSON
+     */
+    public function getProjectsAnalyticsApi()
+    {
+        $projectsAnalytics = $this->getProjectsAnalytics();
+        return response()->json($projectsAnalytics);
+    }
+
+    /**
+     * Get user activity analytics data
+     */
+    public function getUserActivityAnalyticsApi()
+    {
+        $userActivity = [
+            'total_users' => DB::table('users')->count(),
+            'new_users_this_month' => DB::table('users')
+                ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
+                ->count(),
+            'active_users' => DB::table('users')->where('is_active', 1)->count(),
+            'suspended_users' => DB::table('users')->where('is_active', 0)->count(),
+        ];
+
+        return response()->json($userActivity);
+    }
+
+    /**
+     * Get project performance analytics data
+     */
+    public function getProjectPerformanceAnalyticsApi()
+    {
+        $performance = [
+            'average_project_duration' => 0,  // projects table has no created_at/updated_at
+            'on_time_completion' => DB::table('projects')
+                ->where('project_status', 'completed')
+                ->count(),
+            'delayed_completion' => 0,
+        ];
+
+        return response()->json($performance);
+    }
+
+    /**
+     * Get bid completion analytics data
+     */
+    public function getBidCompletionAnalyticsApi()
+    {
+        $bidCompletion = [
+            'total_bids' => DB::table('bids')->count(),
+            'completed_bids' => DB::table('bids')->where('bid_status', 'accepted')->count(),
+            'rejected_bids' => DB::table('bids')->where('bid_status', 'rejected')->count(),
+            'pending_bids' => DB::table('bids')->where('bid_status', 'pending')->count(),
+            'average_bids_per_project' => DB::table('bids')
+                ->selectRaw('AVG(bid_count) as avg')
+                ->from(DB::raw('(SELECT COUNT(*) as bid_count FROM bids GROUP BY project_id) as t'))
+                ->value('avg') ?? 0,
+        ];
+
+        return response()->json($bidCompletion);
     }
 }
